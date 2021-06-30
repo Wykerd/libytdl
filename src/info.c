@@ -69,8 +69,6 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
         info->player_url[i] = pos[i];
     };
 
-    printf("JS Player path: %s\n", info->player_url);
-
     char *player_response_s = strnstr((const char *)buf, " ytInitialPlayerResponse = ", buf_len) + 27;
     size_t player_response_idx = (const uint8_t *)player_response_s - buf;
     char *player_response_e = strnstr(player_response_s, ";</script>", 

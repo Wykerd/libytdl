@@ -23,6 +23,7 @@ add_library(ytdlc SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/src/buffer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/yyjson.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/info.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/net.c
 )
 
 add_executable(ytdl
