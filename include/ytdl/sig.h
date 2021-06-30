@@ -17,6 +17,12 @@ typedef struct ytdl_sig_actions_s {
   int actions_size;
 } ytdl_sig_actions_t;
 
+/**
+ * Extracts the signature deciphering actions (steps) from the youtube player javascript.
+ * 
+ * @param actions populated by the function
+ * @returns 0 on sucess and -1 for any error.
+ */
 int ytdl_sig_actions_extract (ytdl_sig_actions_t *actions, 
                               uint8_t *buf, size_t buf_len);
 

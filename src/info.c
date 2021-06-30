@@ -24,12 +24,31 @@ char *ytdl__strrev(char *str)
     return str;
 }
 
+void ytdl_info_ctx_free (ytdl_info_ctx_t *info) 
+{
+    if (info->init_pr_doc)
+        yyjson_doc_free(info->init_pr_doc);
+    
+    if (info->init_d_doc)
+        yyjson_doc_free(info->init_d_doc);
+
+    if (info->watch_doc)
+        yyjson_doc_free(info->watch_doc);
+
+    if (info->formats) {
+        for (size_t i = 0; i < info->formats_size; i++) 
+        {
+            if (info->formats[i]->url)
+                free(info->formats[i]->url);
+            free(info->formats[i]);
+        }
+        free(info->formats);
+    }
+}
+
 int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info, 
                                   const uint8_t *buf, size_t buf_len) 
 {
-    info->init_pr_doc = NULL;
-    info->init_d_doc  = NULL;
-
     char *pos = strnstr((const char*)buf, "{\"key\":\"cver\",\"value\":\"", buf_len) + 23;
 
     for (char i = 0; i < 20; i++) {
@@ -58,7 +77,7 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
                                       buf_len - player_response_idx);
 
     info->init_pr_doc = yyjson_read(player_response_s, 
-                                        player_response_e - player_response_s, 0);
+                                    player_response_e - player_response_s, 0);
 
     info->player_response = yyjson_doc_get_root(info->init_pr_doc);
 
@@ -71,7 +90,7 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
                                       buf_len - response_idx);
 
     info->init_d_doc = yyjson_read(player_response_s, 
-                                 player_response_e - player_response_s, 0);
+                                   player_response_e - player_response_s, 0);
 
     info->response = yyjson_doc_get_root(info->init_d_doc);
 
@@ -124,7 +143,6 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
     if (info->formats[idx]->url)
         return info->formats[idx]->url;
 
-
     yyjson_val *cipher_val;
     
     cipher_val = yyjson_obj_get(info->formats[idx]->val, "signatureCipher");
@@ -159,7 +177,7 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
                 url = strdup((*cur)->value);
                 uriUnescapeInPlaceA(url);
             } 
-        } while (*cur = querylist->next);
+        } while (((*cur) = querylist->next));
 
         if (!sig || !url) {
             uriFreeQueryListA(querylist);
@@ -172,12 +190,6 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
             return NULL;
         }
         
-        puts(sig);
-
-/*
-        "l=Q=3b2t5sfNkB3tZMl_6JDw3gjo7jJGZzJAtFO-5LeH4DQICoD_yvMGGfd-6KNJKw3nZ-bW-oAOiVPkZN7UTcZmL9LcgIQRw8JQ0qOAOA"
-        "AOq0QJ8wRQIgcL9LmZcTU7NZkPViOAo-Wb-Zn3wKJNK6-dfGGMvy_DoCIQD4HeL5-OFtAJzZGJj7ojg3wDJ6_lMZt3BkNfs5t2b3lQ=="*/
-        // now to decipher the signature
         for (size_t i = 0; i < info->sig_actions->actions_size; i++)
         {
             switch (info->sig_actions->actions[i])
