@@ -18,14 +18,17 @@ add_executable(regexc
 
 find_package(uriparser REQUIRED)
 
-add_executable(ytdl
+add_library(ytdlc SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sig.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/buffer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/yyjson.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/info.c
+)
 
+add_executable(ytdl
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c
 )
 
 target_link_libraries(regexc regexp)
-target_link_libraries(ytdl regexp uriparser::uriparser)
+target_link_libraries(ytdlc regexp uriparser::uriparser)
+target_link_libraries(ytdl ytdlc)
