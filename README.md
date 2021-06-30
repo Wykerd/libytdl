@@ -1,5 +1,7 @@
 # libytdl
 
+# NOTE: libytdl and its documentation is still very much incomplete. Please be patient or help by contributing!
+
 A C library for downloading youtube videos.
 
 Included is two libraries:
@@ -8,11 +10,15 @@ Included is two libraries:
 
 You can pick to use `libytdlc` if your project uses and existing http implemenation.
 
+# Features
+- Small and embeddable
+- Simple API
+
 # Dependencies
 
 ## External
-- (uriparser)[https://uriparser.github.io/]
+- [uriparser](https://uriparser.github.io/)
 
 ## Included (Packaged)
-- libregexp & libunicode from Fabrice Bellard's QuickJS engine
-- yyjson
+- libregexp & libunicode from [Fabrice Bellard's QuickJS engine](https://bellard.org/quickjs/)
+- [yyjson](https://github.com/ibireme/yyjson)
