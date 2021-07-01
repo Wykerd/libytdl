@@ -82,12 +82,16 @@ int ytdl_sig_actions_extract (ytdl_sig_actions_t *actions,
         goto fail;
 
     ytdl_buf_t obj;
-    ytdl_buf_alloc(&obj, capture[2 * 1 + 1] - capture[2 * 1]);
+    if (!ytdl_buf_alloc(&obj, capture[2 * 1 + 1] - capture[2 * 1]))
+        goto fail;
+
     memcpy(obj.base, capture[2 * 1], obj.size);
     obj.len = obj.size;
 
     ytdl_buf_t obj_body;
-    ytdl_buf_alloc(&obj_body, capture[2 * 2 + 1] - capture[2 * 2]);
+    if (!ytdl_buf_alloc(&obj_body, capture[2 * 2 + 1] - capture[2 * 2]))
+        goto fail_malloc2;
+
     memcpy(obj_body.base, capture[2 * 2], obj_body.size);
     obj_body.len = obj_body.size;
 
@@ -100,7 +104,10 @@ int ytdl_sig_actions_extract (ytdl_sig_actions_t *actions,
         goto fail1;
 
     ytdl_buf_t func_body;
-    ytdl_buf_alloc(&func_body, capture[2 * 1 + 1] - capture[2 * 1]);
+    
+    if (!ytdl_buf_alloc(&func_body, capture[2 * 1 + 1] - capture[2 * 1]))
+        goto fail_malloc3;
+
     memcpy(func_body.base, capture[2 * 1], func_body.size);
     func_body.len = func_body.size;
  
@@ -217,6 +224,11 @@ fail1:
     ytdl_buf_free(&obj_body);
 
     return -1;
+
+fail_malloc3:
+    ytdl_buf_free(&obj_body);
+fail_malloc2:
+    ytdl_buf_free(&obj);
 fail:
     free(capture);
     return -1;
