@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(ytdl LANGUAGES C VERSION 0.0.0)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 add_library(regexp STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cutils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/libunicode.c
