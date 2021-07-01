@@ -20,6 +20,12 @@ int main () {
     ytdl_info_ctx_init(&info);
     ytdl_info_extract_watch_html(&info, buf, buf_size);
 
+    if (ytdl_info_get_playability_status(&info))
+    {
+        puts(ytdl_info_get_playability_status_message(&info));
+        return 1;
+    }
+
     printf("%s\n", info.player_url);
 
     // //
@@ -41,7 +47,7 @@ int main () {
     ytdl_info_extract_formats(&info);
 
     ytdl_info_sort_formats(&info);
-    printf("%s\n", ytdl_info_get_format_url(&info, 23));
+    printf("%s\n", ytdl_info_get_format_url(&info, 0));
 
     char id[12];
     ytdl_net_get_id_from_url("https://www.youtube.com/watch?v=Y59vIAr8rAI", id);

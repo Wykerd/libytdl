@@ -98,24 +98,111 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
     return 0;
 }
 
+/**
+ * Populates the data found in playerReponse json all at once
+ */
+static void ytdl__populate_pr_dat (ytdl_info_ctx_t *info) 
+{
+    if (info->is_pr_populated)
+        return;
+    
+    yyjson_val *key, *val;
+    yyjson_obj_iter iter;
+    yyjson_obj_iter_init(info->player_response, &iter);
+    while ((key = yyjson_obj_iter_next(&iter))) {
+        val = yyjson_obj_iter_get_val(key);
+        if (yyjson_equals_str(key, "playabilityStatus"))
+            info->ps = val;
+        else if (yyjson_equals_str(key, "streamingData"))
+            info->sd = val;
+    }
+
+    info->is_pr_populated = 1;
+}
+
+ytdl_info_playability_status_t ytdl_info_get_playability_status (ytdl_info_ctx_t *info)
+{
+    if (info->playability_status)
+        return info->playability_status;
+    
+    if (!info->player_response)
+        return YTDL_PLAYABILITY_UNKNOWN;
+
+    ytdl__populate_pr_dat(info);
+
+    if (!info->ps)
+        return YTDL_PLAYABILITY_UNKNOWN;
+
+    yyjson_val *stat = yyjson_obj_get(info->ps, "status");
+
+    if (!stat) {
+        info->playability_status = YTDL_PLAYABILITY_UNKNOWN;
+        return info->playability_status;
+    }
+
+    info->playability_status = 
+        yyjson_equals_str(stat, "OK") ? YTDL_PLAYABILITY_OK :
+        yyjson_equals_str(stat, "LOGIN_REQUIRED") ? YTDL_PLAYABILITY_LOGIN_REQUIRED :
+        yyjson_equals_str(stat, "UNPLAYABLE") ? YTDL_PLAYABILITY_UNPLAYABLE :
+        YTDL_PLAYABILITY_UNKNOWN;
+
+    return info->playability_status;
+}
+
+const char *ytdl_info_get_playability_status_message (ytdl_info_ctx_t *info) 
+{
+    if (info->ps_message)
+        return info->ps_message;
+    
+    if (!info->player_response)
+        return NULL;
+
+    
+    ytdl__populate_pr_dat(info);
+
+    if (!info->ps)
+        return NULL;
+
+    yyjson_val *messages = yyjson_obj_get(info->ps, "messages");
+
+    if (!messages)
+        return NULL;
+
+    if (!yyjson_arr_size(messages))
+        return NULL;
+
+    return yyjson_get_str(yyjson_arr_get_first(messages));
+}
+
 int ytdl_info_extract_formats (ytdl_info_ctx_t *info) 
 {
     if (!info->player_response)
         return -1;
 
-    yyjson_val *streaming_data = yyjson_obj_get(info->player_response, "streamingData");
-    yyjson_val *formats = yyjson_obj_get(streaming_data, "formats");
+    ytdl__populate_pr_dat(info);
 
-    if (formats == NULL)
+    if (info->sd == NULL)
         return -1;
 
-    yyjson_val *adaptive_formats = yyjson_obj_get(streaming_data, "adaptiveFormats");
+    if (!info->sd_formats || !info->sd_adaptive_formats) 
+    {
+        yyjson_val *key, *val;
+        yyjson_obj_iter iter;
+        yyjson_obj_iter_init(info->sd, &iter);
+        while ((key = yyjson_obj_iter_next(&iter))) {
+            val = yyjson_obj_iter_get_val(key);
+            if (yyjson_equals_str(key, "formats"))
+                info->sd_formats = val;
+            else if (yyjson_equals_str(key, "adaptiveFormats"))
+                info->sd_adaptive_formats = val;
+        }
+    }
 
-    if (adaptive_formats == NULL)
+    if (!info->sd_formats || !info->sd_adaptive_formats)
         return -1;
 
-    size_t adaptive_offset = yyjson_arr_size(formats);
-    info->formats_size = adaptive_offset + yyjson_arr_size(adaptive_formats);
+    size_t adaptive_offset = yyjson_arr_size(info->sd_formats);
+    info->formats_size = adaptive_offset + yyjson_arr_size(info->sd_adaptive_formats);
 
     if (info->formats_size == 0)
         return -1;
@@ -127,7 +214,7 @@ int ytdl_info_extract_formats (ytdl_info_ctx_t *info)
 
     size_t idx, max;
     yyjson_val *val;
-    yyjson_arr_foreach(formats, idx, max, val) {
+    yyjson_arr_foreach(info->sd_formats, idx, max, val) {
         info->formats[idx] = calloc(1, sizeof(ytdl_info_format_t));
 
         if (!info->formats[idx])
@@ -137,7 +224,7 @@ int ytdl_info_extract_formats (ytdl_info_ctx_t *info)
         info->formats[idx]->val = val;
     }
 
-    yyjson_arr_foreach(adaptive_formats, idx, max, val) {
+    yyjson_arr_foreach(info->sd_adaptive_formats, idx, max, val) {
         info->formats[adaptive_offset + idx] = calloc(1, sizeof(ytdl_info_format_t));
 
         if (!info->formats[adaptive_offset + idx])
@@ -157,58 +244,66 @@ void ytdl_info_set_sig_actions (ytdl_info_ctx_t *info, ytdl_sig_actions_t *sig_a
     info->sig_actions = sig_actions;
 }
 
-/// do the bare minimum to filter the stream qualities
-static void ytdl__info_format_quality_min (ytdl_info_ctx_t *info) 
+static void ytdl__info_format_populate (ytdl_info_ctx_t *info, size_t i) 
 {
-    yyjson_val *val;
-    for (size_t i = 0; i < info->formats_size; i++) 
-    {
-        if (!info->formats[i]->width) {
-            val = yyjson_obj_get(info->formats[i]->val, "width");
-            if (val) {
-                info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_VID;
-                info->formats[i]->width = yyjson_get_int(val);
-            } else info->formats[i]->width = -1;
-        }
-
-        if (!info->formats[i]->fps) 
+    if (info->formats[i]->flags & YTDL_INFO_FORMAT_POPULATED)
+        return;
+    
+    yyjson_val *key, *val;
+    yyjson_obj_iter iter;
+    yyjson_obj_iter_init(info->formats[i]->val, &iter);
+    while ((key = yyjson_obj_iter_next(&iter))) {
+        val = yyjson_obj_iter_get_val(key);
+        if (yyjson_equals_str(key, "itag"))
+            info->formats[i]->itag = yyjson_get_int(val);
+        else if (yyjson_equals_str(key, "url"))
+            info->formats[i]->url_untouched = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "mimeType"))
+            info->formats[i]->mime_type = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "signatureCipher") || yyjson_equals_str(key, "cipher"))
+            info->formats[i]->cipher = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "bitrate"))
+            info->formats[i]->bitrate = yyjson_get_int(val);
+        else if (yyjson_equals_str(key, "width"))
         {
-            val = yyjson_obj_get(info->formats[i]->val, "fps");
-            if (val) {
-                info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_VID;
-                info->formats[i]->fps = yyjson_get_int(val);
-            } else info->formats[i]->fps = -1;
+            info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_VID;
+            info->formats[i]->width = yyjson_get_int(val);
         }
-
-        if (!info->formats[i]->bitrate) 
+        else if (yyjson_equals_str(key, "height"))
+            info->formats[i]->height = yyjson_get_int(val);
+        else if (yyjson_equals_str(key, "contentLength"))
+            info->formats[i]->content_length = atoll(yyjson_get_str(val));
+        else if (yyjson_equals_str(key, "quality"))
+            info->formats[i]->quality = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "qualityLabel"))
+            info->formats[i]->quality_label = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "fps"))
+            info->formats[i]->fps = yyjson_get_int(val);
+        else if (yyjson_equals_str(key, "averageBitrate"))
+            info->formats[i]->average_bitrate = yyjson_get_int(val);
+        else if (yyjson_equals_str(key, "audioChannels"))
         {
-            val = yyjson_obj_get(info->formats[i]->val, "bitrate");
-            if (val) {
-                info->formats[i]->bitrate = yyjson_get_int(val);
-            };
+            info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_AUD;
+            info->formats[i]->audio_channels = yyjson_get_int(val);
         }
-
-        if (!info->formats[i]->audio_channels) 
+        else if (yyjson_equals_str(key, "approxDurationMs"))
+            info->formats[i]->approx_duration_ms = atoll(yyjson_get_str(val));
+        else if (yyjson_equals_str(key, "audioQuality"))
         {
-            val = yyjson_obj_get(info->formats[i]->val, "audioChannels");
-            if (val) {
-                info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_AUD;
-                info->formats[i]->audio_channels = yyjson_get_int(val);
-            } else info->formats[i]->audio_channels = -1;
-        }
-
-        if (!info->formats[i]->audio_quality) 
-        {
-            val = yyjson_obj_get(info->formats[i]->val, "audioQuality");
-            if (val) {
-                info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_AUD;
-                info->formats[i]->audio_quality = 
-                    yyjson_get_str(val)[yyjson_get_len(val) - 1] == 'W' ? 
-                        YTLD_INFO_AUDIO_QUALITY_LOW : 
-                        YTLD_INFO_AUDIO_QUALITY_MEDIUM;
-            } else info->formats[i]->audio_quality = -1;
+            info->formats[i]->audio_quality = 
+                yyjson_get_str(val)[yyjson_get_len(val) - 1] == 'W' ? 
+                    YTLD_INFO_AUDIO_QUALITY_LOW : 
+                    YTLD_INFO_AUDIO_QUALITY_MEDIUM;
         }
     }
+
+    info->formats[i]->flags |= YTDL_INFO_FORMAT_POPULATED;
+}
+
+static void ytdl__info_format_populate_all(ytdl_info_ctx_t *info)
+{
+    for (size_t i = 0; i < info->formats_size; i++)
+        ytdl__info_format_populate(info, i);
 }
 
 static int ytdl__fmt_cmp (const void *a, const void *b) 
@@ -226,14 +321,17 @@ static int ytdl__fmt_cmp (const void *a, const void *b)
     if (b_score)
         b_score += (*(ytdl_info_format_t **)b)->width + (*(ytdl_info_format_t **)b)->fps + (*(ytdl_info_format_t **)b)->bitrate;
     else
+    {
+        ytdl_info_format_t *info = (*(ytdl_info_format_t **)b);
         b_score -= ((*(ytdl_info_format_t **)b)->bitrate * (*(ytdl_info_format_t **)b)->audio_channels) / (*(ytdl_info_format_t **)b)->audio_quality;
+    }
 
     return b_score - a_score;
 }
 
 void ytdl_info_sort_formats (ytdl_info_ctx_t *info)
 {
-    ytdl__info_format_quality_min(info);
+    ytdl__info_format_populate_all(info);
 
     qsort(info->formats, info->formats_size, sizeof(ytdl_info_format_t*), ytdl__fmt_cmp);
 }
@@ -243,16 +341,13 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
     if (info->formats[idx]->url)
         return info->formats[idx]->url;
 
-    yyjson_val *cipher_val;
-    
-    cipher_val = yyjson_obj_get(info->formats[idx]->val, "signatureCipher");
-    cipher_val = cipher_val ? cipher_val : yyjson_obj_get(info->formats[idx]->val, "cipher");
+    ytdl__info_format_populate(info, idx);
 
-    if (cipher_val) {
+    if (info->formats[idx]->cipher) {
         UriQueryListA *querylist, **cur;
         int item_count;
 
-        const char *cipher = yyjson_get_str(cipher_val);
+        const char *cipher = info->formats[idx]->cipher;
 
         if (uriDissectQueryMallocA(&querylist, &item_count, cipher, 
                                    cipher + strlen(cipher)) != URI_SUCCESS) 
@@ -345,15 +440,14 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
             free(sp);
 
         uriFreeQueryListA(querylist);
-    } else { 
-        info->formats[idx]->url = strdup(
-            yyjson_get_str(
-                yyjson_obj_get(info->formats[idx]->val, "url")
-            )
-        );
+    } 
+    else if (info->formats[idx]->url_untouched) 
+    { 
+        info->formats[idx]->url = strdup(info->formats[idx]->url_untouched);
 
         uriUnescapeInPlaceA(info->formats[idx]->url);
     }
+    else return NULL;
 
     // TODO: check live dash and hls support
 

@@ -8,35 +8,45 @@
 #include <ytdl/yyjson.h>
 #include <ytdl/sig.h>
 
-#define YTDL_INFO_FORMAT_HAS_VID        (1)
-#define YTDL_INFO_FORMAT_HAS_AUD        (1 << 1)
-#define YTDL_INFO_FORMAT_IS_DASH        (1 << 2)
-#define YTDL_INFO_FORMAT_IS_HLS         (1 << 3)
-#define YTDL_INFO_FORMAT_IS_LIVE        (1 << 4)
+#define YTDL_INFO_FORMAT_POPULATED      (1)
+#define YTDL_INFO_FORMAT_HAS_VID        (1 << 1)
+#define YTDL_INFO_FORMAT_HAS_AUD        (1 << 2)
+#define YTDL_INFO_FORMAT_IS_DASH        (1 << 3)
+#define YTDL_INFO_FORMAT_IS_HLS         (1 << 4)
+#define YTDL_INFO_FORMAT_IS_LIVE        (1 << 5)
 
 #define YTLD_INFO_AUDIO_QUALITY_LOW     2
 #define YTLD_INFO_AUDIO_QUALITY_MEDIUM  1
 
 typedef struct ytdl_info_format_s {
     yyjson_val *val;
+    size_t flags;
     char *url;
-    char *mime_type;
-    size_t content_length;
- 
+
+    int itag;
+    const char *url_untouched;
+    const char *cipher;
+    const char *mime_type;
+    int bitrate;//
     int width;//
     int height;
-    int bitrate;//
+    long long content_length;
+    const char *quality;
+    const char *quality_label;
     int fps;//
-
-    char *quality;
-    char *quality_label;
-    
+    int average_bitrate;
     int audio_channels; //
     int audio_quality;//
-
-    size_t approx_duration_ms;
-    size_t flags;
+    long long approx_duration_ms;
 } ytdl_info_format_t;
+
+typedef enum ytdl_info_playability_status_e {
+    YTDL_PLAYABILITY_OK,
+    YTDL_PLAYABILITY_UNKNOWN,
+    YTDL_PLAYABILITY_LOGIN_REQUIRED,
+    YTDL_PLAYABILITY_LIVE_STREAM_OFFLINE,
+    YTDL_PLAYABILITY_UNPLAYABLE
+} ytdl_info_playability_status_t;
 
 typedef struct ytdl_info_ctx_s {
     // // //
@@ -45,14 +55,28 @@ typedef struct ytdl_info_ctx_s {
     ytdl_info_format_t **formats;
     size_t formats_size;
 
+    ytdl_info_playability_status_t playability_status;
+    char *ps_message;
+
     // // //
     // JSON Internals
     // // //
     yyjson_doc *init_pr_doc;
     yyjson_doc *init_d_doc;
     yyjson_doc *watch_doc;
+
     yyjson_val *player_response;
     yyjson_val *response;
+
+    /// playability status
+    yyjson_val *ps;
+
+    /// streamind data
+    yyjson_val *sd;
+    yyjson_val *sd_formats;
+    yyjson_val *sd_adaptive_formats;
+
+    int is_pr_populated;
 
     // // //
     // Decipher parameters
@@ -82,6 +106,18 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
                                   const uint8_t *buf, size_t buf_len);
 
 /**
+ * Get the playability status of the video.
+ * 
+ * Call this function before attemting to extract the formats to check that the video
+ * can be played
+ * @returns The status `YTDL_PLAYABILITY_OK` means the video can be downloaded. 
+ * Else call `ytdl_info_get_playability_status_message` for a reason why not
+ */
+ytdl_info_playability_status_t ytdl_info_get_playability_status (ytdl_info_ctx_t *info);
+
+const char *ytdl_info_get_playability_status_message (ytdl_info_ctx_t *info);
+
+/**
  * Extract the formats from the data acquired from ytdl_info_extract_watch_html
  * 
  * Call this function after populating the context with ytdl_info_extract_watch_html
@@ -94,7 +130,8 @@ int ytdl_info_extract_formats (ytdl_info_ctx_t *info);
  * Use the specified sig actions to decipher the formats of the context
  * 
  * @param info the context to which this applies
- * @param sig_actions actions required to decipher code. This value must be freed AFTER disposing of the info context
+ * @param sig_actions actions required to decipher code. 
+ * This value must be freed AFTER disposing of the info context
  */
 void ytdl_info_set_sig_actions (ytdl_info_ctx_t *info, ytdl_sig_actions_t *sig_actions);
 
@@ -110,10 +147,14 @@ void ytdl_info_ctx_free (ytdl_info_ctx_t *info);
  * 
  * @param info Info context
  * @param idx The index of the format to get
- * @returns The deciphered stream url. The value is freed along with the info. NULL if error
+ * @returns The deciphered stream url. NULL if error.
+ * The value is freed along with the info. 
  */ 
 char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx);
 
+/**
+ * Sort the formats into order for selection with `ytdl_info_select_format`
+ */
 void ytdl_info_sort_formats (ytdl_info_ctx_t *info);
 
 /**
