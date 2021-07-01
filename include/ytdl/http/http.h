@@ -57,6 +57,8 @@ typedef struct ytdl_https_write_queue_s {
     llhttp_settings_t parser_settings;
 
 #define YTDL_HTTPS_CLIENT_FIELDS \
+    char *hostname; \
+    int is_tls; \
     SSL *ssl; \
     SSL_CTX *tls_ctx; \
     char* tls_read_buf; \
@@ -77,12 +79,11 @@ struct ytdl_http_client_s {
 
 void ytdl_http_client_parse_read (ytdl_http_client_t* client, const uv_buf_t *buf);
 int ytdl_http_client_init (uv_loop_t *loop, ytdl_http_client_t *client);
-int ytdl_http_client_connect (ytdl_http_client_t *client, ytdl_http_client_status_cb status_cb, ytdl_http_client_ready_cb ready_cb);
+int ytdl_http_client_connect (ytdl_http_client_t *client, int is_tls, const char *host, const char *port, 
+                              ytdl_http_client_status_cb status_cb, ytdl_http_client_ready_cb ready_cb);
 void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb);
 void ytdl_http_client_write (ytdl_http_client_t *client, uv_buf_t *buf, ytdl_http_client_status_cb write_cb);
 int ytdl_http_client_set_url (ytdl_http_client_t *client, const char* url);
-
-int ytdl_http_header_is_equal (const char* src, const size_t src_len, const char* target, const size_t target_len);
 
 #ifdef __cplusplus
 }

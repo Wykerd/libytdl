@@ -1,7 +1,6 @@
 #ifndef YTDL_TCP_H
 #define YTDL_TCP_H
 #include "net.h"
-#include <uriparser/Uri.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,7 +17,6 @@ typedef void (*ytdl_tcp_client_connect_cb)(ytdl_tcp_client_t *client);
 #define YTDL_TCP_CLIENT_FIELDS \
     void *data; \
     uv_loop_t *loop; \
-    UriUriA url; \
     ytdl_tcp_client_settings_t settings; \
     uv_tcp_t tcp; \
     ytdl_tcp_client_connect_cb connect_cb;
@@ -37,7 +35,8 @@ struct ytdl_tcp_client_s {
 };
 
 int ytdl_tcp_client_init (uv_loop_t *loop, ytdl_tcp_client_t *client);
-int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, ytdl_tcp_client_status_cb status_cb, ytdl_tcp_client_connect_cb connect_cb);
+int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, const char *host, const char *port, 
+                             ytdl_tcp_client_status_cb status_cb, ytdl_tcp_client_connect_cb connect_cb);
 
 #ifdef __cplusplus
 }

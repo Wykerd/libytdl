@@ -33,6 +33,46 @@ const char yt_valid_id_map[256] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
 
+void ytdl_net_request_player_js (ytdl_buf_t *buf, const char* player_path) 
+{
+    buf->len = 0;
+    if (!ytdl_buf_alloc(buf, 512))
+        return;
+
+    snprintf(
+        buf->base, 
+        256,
+        "GET %s HTTP/1.1\r\n"
+        "Host: www.youtube.com\r\n"
+        "Connection: keep-alive\r\n"
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36\r\n"
+        "Accept: */*\r\n\r\n",
+        player_path
+    );
+
+    buf->len = strlen(buf->base);
+}
+
+void ytdl_net_request_watch_html (ytdl_buf_t *buf, const char id[YTDL_ID_SIZE]) 
+{
+    buf->len = 0;
+    if (!ytdl_buf_alloc(buf, 512))
+        return;
+
+    snprintf(
+        buf->base, 
+        256,
+        "GET /watch?v=%s HTTP/1.1\r\n"
+        "Host: www.youtube.com\r\n"
+        "Connection: keep-alive\r\n"
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36\r\n"
+        "Accept: */*\r\n\r\n",
+        id
+    );
+
+    buf->len = strlen(buf->base);
+}
+
 void ytdl_net_get_watch_url (char url[YTDL_WATCH_URL_SIZE], char id[YTDL_ID_SIZE])
 {
     sprintf(url, "%s%s", "https://www.youtube.com/watch?v=", id);

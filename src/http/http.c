@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <uriparser/Uri.h>
 
 void ytdl_http_client_parse_read (ytdl_http_client_t* client, const uv_buf_t *buf) {
     llhttp_errno_t err = llhttp_execute(&client->parser, buf->base, buf->len);
@@ -92,6 +91,7 @@ int ytdl_http_client_init (uv_loop_t *loop, ytdl_http_client_t *client) {
     client->ssl = NULL;
     client->ready_cb = NULL;
     client->read_cb = ytdl_http_client_parse_read;
+    client->hostname = NULL;
 
     /* Initialize parser */
     llhttp_settings_init(&client->parser_settings);
@@ -101,6 +101,8 @@ int ytdl_http_client_init (uv_loop_t *loop, ytdl_http_client_t *client) {
     /* Write queue */
     client->tls_write_queue.bufs = malloc(sizeof(ytdl_https_write_job_t *));
     client->tls_write_queue.len = 0;
+
+    client->is_tls = 0;
 
     return 1;
 };
@@ -141,12 +143,10 @@ void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb
     }
     free(client->tls_write_queue.bufs);
 
-    if (client->url.scheme.first) {
-        uriFreeUriMembersA(&client->url);
-        memset(&client->url, 0, sizeof(UriUriA));
-    }
-
     client->tcp.data = client;
+
+    if (client->hostname)
+        free(client->hostname);
 
     int err = 0;
     if (client->ssl != NULL) {
@@ -168,20 +168,6 @@ void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb
         close_cb((uv_handle_t *)&client->tcp);
     }
 }
-
-int ytdl_http_client_set_url (ytdl_http_client_t *client, const char* url) {
-    const char *errorPos;
-    if (uriParseSingleUriA(&client->url, url, &errorPos) != URI_SUCCESS) {
-        return 0;
-    }
-
-    if (client->url.scheme.first == NULL) {
-        uriFreeUriMembersA(&client->url);
-        return 0;
-    }
-
-    return 1;
-};
 
 static void ytdl__http_client_alloc_cb (
     uv_handle_t* handle,
@@ -477,9 +463,7 @@ static void ytdl__http_client_tcp_connect_cb (
 
     int r;
 
-    size_t scheme_len = client->url.scheme.afterLast - client->url.scheme.first;
-
-    if ((scheme_len == 5) && !memcmp(client->url.scheme.first, "https", 5)) {
+    if (client->is_tls) {
         // reset ssl if client was used before
         if (client->ssl != NULL) {
             SSL_free(client->ssl);
@@ -574,13 +558,8 @@ static void ytdl__http_client_tcp_connect_cb (
 
         ERR_clear_error();
 
-
-        char *hostname = malloc(client->url.hostText.afterLast - client->url.hostText.first + 1);
-        memcpy(hostname, client->url.hostText.first, client->url.hostText.afterLast - client->url.hostText.first);
-        hostname[client->url.hostText.afterLast - client->url.hostText.first] = 0;
-
-        if (!ytdl_net_is_numeric_host(hostname)) {
-            if (!SSL_set_tlsext_host_name(client->ssl, hostname)) {
+        if (!ytdl_net_is_numeric_host(client->hostname)) {
+            if (!SSL_set_tlsext_host_name(client->ssl, client->hostname)) {
                 SSL_CTX_free(client->tls_ctx); // deref
                 SSL_free(client->ssl);
 
@@ -594,8 +573,6 @@ static void ytdl__http_client_tcp_connect_cb (
                 return;
             }
         };
-
-        free(hostname);
 
         client->tls_read_buf = calloc(sizeof(char), YTDL_HTTPS_BUF_LEN);
 
@@ -631,7 +608,7 @@ static void ytdl__http_client_tcp_connect_cb (
         uv_idle_start(handshake, ytdl__http_client_tls_handshake_cb);
 
         return;
-    } else if ((scheme_len == 4) && !memcmp(client->url.scheme.first, "http", 4)) {
+    } else {
         r = uv_read_start((uv_stream_t *)&client->tcp, *ytdl__http_client_alloc_cb, *ytdl__http_client_read_cb);
 
         if (r != 0) {
@@ -648,18 +625,15 @@ static void ytdl__http_client_tcp_connect_cb (
         }
 
         client->ready_cb(client);
-    } else {
-        ytdl_net_status_t stat = {
-            .type = YTDL_NET_E_UNSUPPORTED_SCHEMA,
-            .code = 0
-        };
-
-        (*(ytdl_http_client_status_cb)client->status_cb)(client, &stat);
-    }
+    };
 }
 
-int ytdl_http_client_connect (ytdl_http_client_t *client, ytdl_http_client_status_cb status_cb, ytdl_http_client_ready_cb ready_cb) {
+int ytdl_http_client_connect (ytdl_http_client_t *client, int is_tls, const char *host, const char *port, 
+                              ytdl_http_client_status_cb status_cb, ytdl_http_client_ready_cb ready_cb)
+{
     client->ready_cb = ready_cb;
+    client->is_tls = is_tls;
+    client->hostname = strdup(host);
 
-    return ytdl_tcp_client_connect((ytdl_tcp_client_t *)client, (ytdl_tcp_client_status_cb)status_cb, ytdl__http_client_tcp_connect_cb);;
+    return ytdl_tcp_client_connect((ytdl_tcp_client_t *)client, host, port, (ytdl_tcp_client_status_cb)status_cb, ytdl__http_client_tcp_connect_cb);;
 }

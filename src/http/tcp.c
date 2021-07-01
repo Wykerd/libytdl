@@ -8,7 +8,6 @@ int ytdl_tcp_client_init (uv_loop_t *loop, ytdl_tcp_client_t *client) {
     client->loop = loop;
 
     /* Clear all the pointers */
-    memset(&client->url, 0, sizeof(UriUriA));
     client->connect_cb = NULL;
     client->status_cb = NULL;
     client->read_cb = NULL;
@@ -108,7 +107,9 @@ cleanup:
     free(req);
 }
 
-int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, ytdl_tcp_client_status_cb status_cb, ytdl_tcp_client_connect_cb connect_cb) {
+int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, const char *host, const char *port, 
+                             ytdl_tcp_client_status_cb status_cb, ytdl_tcp_client_connect_cb connect_cb)
+{
     client->status_cb = status_cb;
     client->connect_cb = connect_cb;
 
@@ -118,28 +119,7 @@ int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, ytdl_tcp_client_status_c
         return -1;
     };
 
-    if (unlikely(client->url.scheme.first == NULL)) {
-        return -2;
-    };
-
-    char *hostname = malloc(client->url.hostText.afterLast - client->url.hostText.first + 1);
-    memcpy(hostname, client->url.hostText.first, client->url.hostText.afterLast - client->url.hostText.first);
-    hostname[client->url.hostText.afterLast - client->url.hostText.first] = 0;
-
-    size_t scheme_len = client->url.scheme.afterLast - client->url.scheme.first;
-
-    char *port;
-    if (client->url.portText.afterLast - client->url.portText.first) {
-        port = malloc(client->url.portText.afterLast - client->url.portText.first + 1);
-        memcpy(port, client->url.portText.first, client->url.portText.afterLast - client->url.portText.first);
-        hostname[client->url.portText.afterLast - client->url.portText.first] = 0;
-    } else if ((scheme_len == 4) && !memcmp(client->url.scheme.first, "http", 4)) {
-        port = strdup("80");
-    } else if ((scheme_len == 5) && !memcmp(client->url.scheme.first, "https", 4)) {
-        port = strdup("443");
-    } else port = strdup("0");
-
-    int numeric_host_v = ytdl_net_is_numeric_host_v(hostname);
+    int numeric_host_v = ytdl_net_is_numeric_host_v(host);
 
     if (unlikely(numeric_host_v)) {
         int r;
@@ -148,7 +128,7 @@ int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, ytdl_tcp_client_status_c
         case 4:
             {
                 struct sockaddr_in dst;
-                r = uv_ip4_addr(hostname, atoi(port), &dst);
+                r = uv_ip4_addr(host, atoi(port), &dst);
                 ytdl__tcp_client_connect(client, (struct sockaddr *)&dst);
             }
             break;
@@ -156,7 +136,7 @@ int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, ytdl_tcp_client_status_c
         case 6:
             {
                 struct sockaddr_in6 dst;
-                r = uv_ip6_addr(hostname, atoi(port), &dst);
+                r = uv_ip6_addr(host, atoi(port), &dst);
                 ytdl__tcp_client_connect(client, (struct sockaddr *)&dst);
             }
             break;
@@ -182,13 +162,10 @@ int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, ytdl_tcp_client_status_c
             client->loop,
             getaddrinfo_req,
             *ytdl__tcp_client_getaddrinfo_cb,
-            hostname,
+            host,
             port,
             &hints
         );
-
-        free(hostname);
-        free(port);
     }
 
     return 0;
