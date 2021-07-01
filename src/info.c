@@ -106,7 +106,16 @@ int ytdl_info_extract_formats (ytdl_info_ctx_t *info)
     yyjson_val *streaming_data = yyjson_obj_get(info->player_response, "streamingData");
     yyjson_val *formats = yyjson_obj_get(streaming_data, "formats");
 
-    info->formats_size = yyjson_arr_size(formats);
+    if (formats == NULL)
+        return -1;
+
+    yyjson_val *adaptive_formats = yyjson_obj_get(streaming_data, "adaptiveFormats");
+
+    if (adaptive_formats == NULL)
+        return -1;
+
+    size_t adaptive_offset = yyjson_arr_size(formats);
+    info->formats_size = adaptive_offset + yyjson_arr_size(adaptive_formats);
 
     if (info->formats_size == 0)
         return -1;
@@ -119,7 +128,7 @@ int ytdl_info_extract_formats (ytdl_info_ctx_t *info)
     size_t idx, max;
     yyjson_val *val;
     yyjson_arr_foreach(formats, idx, max, val) {
-        info->formats[idx] = malloc(sizeof(ytdl_info_format_t));
+        info->formats[idx] = calloc(1, sizeof(ytdl_info_format_t));
 
         if (!info->formats[idx])
             return 1;
@@ -128,12 +137,105 @@ int ytdl_info_extract_formats (ytdl_info_ctx_t *info)
         info->formats[idx]->val = val;
     }
 
+    yyjson_arr_foreach(adaptive_formats, idx, max, val) {
+        info->formats[adaptive_offset + idx] = calloc(1, sizeof(ytdl_info_format_t));
+
+        if (!info->formats[adaptive_offset + idx])
+            return 1;
+
+        info->formats[adaptive_offset + idx]->url = NULL;
+        info->formats[adaptive_offset + idx]->val = val;
+    }
+
+    // TODO: hls & dash streams 
+
     return 0;
 }
 
 void ytdl_info_set_sig_actions (ytdl_info_ctx_t *info, ytdl_sig_actions_t *sig_actions) 
 {
     info->sig_actions = sig_actions;
+}
+
+/// do the bare minimum to filter the stream qualities
+static void ytdl__info_format_quality_min (ytdl_info_ctx_t *info) 
+{
+    yyjson_val *val;
+    for (size_t i = 0; i < info->formats_size; i++) 
+    {
+        if (!info->formats[i]->width) {
+            val = yyjson_obj_get(info->formats[i]->val, "width");
+            if (val) {
+                info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_VID;
+                info->formats[i]->width = yyjson_get_int(val);
+            } else info->formats[i]->width = -1;
+        }
+
+        if (!info->formats[i]->fps) 
+        {
+            val = yyjson_obj_get(info->formats[i]->val, "fps");
+            if (val) {
+                info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_VID;
+                info->formats[i]->fps = yyjson_get_int(val);
+            } else info->formats[i]->fps = -1;
+        }
+
+        if (!info->formats[i]->bitrate) 
+        {
+            val = yyjson_obj_get(info->formats[i]->val, "bitrate");
+            if (val) {
+                info->formats[i]->bitrate = yyjson_get_int(val);
+            };
+        }
+
+        if (!info->formats[i]->audio_channels) 
+        {
+            val = yyjson_obj_get(info->formats[i]->val, "audioChannels");
+            if (val) {
+                info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_AUD;
+                info->formats[i]->audio_channels = yyjson_get_int(val);
+            } else info->formats[i]->audio_channels = -1;
+        }
+
+        if (!info->formats[i]->audio_quality) 
+        {
+            val = yyjson_obj_get(info->formats[i]->val, "audioQuality");
+            if (val) {
+                info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_AUD;
+                info->formats[i]->audio_quality = 
+                    yyjson_get_str(val)[yyjson_get_len(val) - 1] == 'W' ? 
+                        YTLD_INFO_AUDIO_QUALITY_LOW : 
+                        YTLD_INFO_AUDIO_QUALITY_MEDIUM;
+            } else info->formats[i]->audio_quality = -1;
+        }
+    }
+}
+
+static int ytdl__fmt_cmp (const void *a, const void *b) 
+{
+    int a_score = !!(((*(ytdl_info_format_t **)a)->flags & YTDL_INFO_FORMAT_HAS_AUD) & ((*(ytdl_info_format_t **)a)->flags & YTDL_INFO_FORMAT_HAS_VID));
+    int b_score = !!(((*(ytdl_info_format_t **)b)->flags & YTDL_INFO_FORMAT_HAS_AUD) & ((*(ytdl_info_format_t **)b)->flags & YTDL_INFO_FORMAT_HAS_VID));;
+    a_score = a_score ? a_score : ((*(ytdl_info_format_t **)a)->flags & YTDL_INFO_FORMAT_HAS_VID) ? 2 : 0;
+    b_score = b_score ? b_score : ((*(ytdl_info_format_t **)b)->flags & YTDL_INFO_FORMAT_HAS_VID) ? 2 : 0;
+
+    if (a_score)
+        a_score += (*(ytdl_info_format_t **)a)->width + (*(ytdl_info_format_t **)a)->fps + (*(ytdl_info_format_t **)a)->bitrate;
+    else
+        a_score -= ((*(ytdl_info_format_t **)a)->bitrate * (*(ytdl_info_format_t **)a)->audio_channels) / (*(ytdl_info_format_t **)a)->audio_quality;
+
+    if (b_score)
+        b_score += (*(ytdl_info_format_t **)b)->width + (*(ytdl_info_format_t **)b)->fps + (*(ytdl_info_format_t **)b)->bitrate;
+    else
+        b_score -= ((*(ytdl_info_format_t **)b)->bitrate * (*(ytdl_info_format_t **)b)->audio_channels) / (*(ytdl_info_format_t **)b)->audio_quality;
+
+    return b_score - a_score;
+}
+
+void ytdl_info_sort_formats (ytdl_info_ctx_t *info)
+{
+    ytdl__info_format_quality_min(info);
+
+    qsort(info->formats, info->formats_size, sizeof(ytdl_info_format_t*), ytdl__fmt_cmp);
 }
 
 char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx) 
@@ -252,6 +354,10 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
 
         uriUnescapeInPlaceA(info->formats[idx]->url);
     }
+
+    // TODO: check live dash and hls support
+
+
 
     return info->formats[idx]->url;
 } 

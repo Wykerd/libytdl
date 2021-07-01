@@ -8,24 +8,57 @@
 #include <ytdl/yyjson.h>
 #include <ytdl/sig.h>
 
+#define YTDL_INFO_FORMAT_HAS_VID        (1)
+#define YTDL_INFO_FORMAT_HAS_AUD        (1 << 1)
+#define YTDL_INFO_FORMAT_IS_DASH        (1 << 2)
+#define YTDL_INFO_FORMAT_IS_HLS         (1 << 3)
+#define YTDL_INFO_FORMAT_IS_LIVE        (1 << 4)
+
+#define YTLD_INFO_AUDIO_QUALITY_LOW     2
+#define YTLD_INFO_AUDIO_QUALITY_MEDIUM  1
+
 typedef struct ytdl_info_format_s {
     yyjson_val *val;
     char *url;
+    char *mime_type;
+    size_t content_length;
+ 
+    int width;//
+    int height;
+    int bitrate;//
+    int fps;//
+
+    char *quality;
+    char *quality_label;
+    
+    int audio_channels; //
+    int audio_quality;//
+
+    size_t approx_duration_ms;
+    size_t flags;
 } ytdl_info_format_t;
 
 typedef struct ytdl_info_ctx_s {
-    char cver[20];
-    char player_url[150];
-    
+    // // //
+    // Formats
+    // // // 
+    ytdl_info_format_t **formats;
+    size_t formats_size;
+
+    // // //
+    // JSON Internals
+    // // //
     yyjson_doc *init_pr_doc;
     yyjson_doc *init_d_doc;
     yyjson_doc *watch_doc;
     yyjson_val *player_response;
     yyjson_val *response;
 
-    ytdl_info_format_t **formats;
-    size_t formats_size;
-
+    // // //
+    // Decipher parameters
+    // // //
+    char cver[20];
+    char player_url[150];
     ytdl_sig_actions_t *sig_actions;
 } ytdl_info_ctx_t;
 
@@ -80,6 +113,8 @@ void ytdl_info_ctx_free (ytdl_info_ctx_t *info);
  * @returns The deciphered stream url. The value is freed along with the info. NULL if error
  */ 
 char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx);
+
+void ytdl_info_sort_formats (ytdl_info_ctx_t *info);
 
 /**
  * Get the path for the video player

@@ -17,6 +17,7 @@ int main () {
     // //
 
     ytdl_info_ctx_t info;
+    ytdl_info_ctx_init(&info);
     ytdl_info_extract_watch_html(&info, buf, buf_size);
 
     printf("%s\n", info.player_url);
@@ -39,10 +40,11 @@ int main () {
     ytdl_info_set_sig_actions(&info, &actions);
     ytdl_info_extract_formats(&info);
 
-    printf("%s\n", ytdl_info_get_format_url(&info, 0));
+    ytdl_info_sort_formats(&info);
+    printf("%s\n", ytdl_info_get_format_url(&info, 23));
 
     char id[12];
-    ytdl_net_get_id_from_url("https://www.youtube.com/watch?v=Y59vIAr8rAI", &id);
+    ytdl_net_get_id_from_url("https://www.youtube.com/watch?v=Y59vIAr8rAI", id);
 
     puts(id);
 
