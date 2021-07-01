@@ -9,7 +9,7 @@ Other tools like `youtube-dl` don't provide developers with a simple embedding A
 
 ## What's includes?
 - `libytdlc` which is the core library without any http implementations
-- `libytdl` which uses curl as a http client implementation
+- `libytdl` which uses its own http client implementation
 
 You can pick to use `libytdlc` if your project uses and existing http implemenation.
 
@@ -24,7 +24,9 @@ libytdl is tested on both GNU/Linux and macOS and should work without any issues
 - \ref buildlinux "Building on GNU/Linux"
 - \ref buildmacos "Building on macOS"
 
-## Dependencies
+# Dependencies
+
+## Core dependencies (libytdlc)
 
 ### External
 - [uriparser](https://uriparser.github.io/)
@@ -32,3 +34,12 @@ libytdl is tested on both GNU/Linux and macOS and should work without any issues
 ### Included (Packaged)
 - libregexp & libunicode from [Fabrice Bellard's QuickJS engine](https://bellard.org/quickjs/)
 - [yyjson](https://github.com/ibireme/yyjson)
+
+## Additional dependencies (libytdl)
+
+### External
+- [OpenSSL](https://www.openssl.org/)
+- [libuv](https://libuv.org/)
+
+### Included (submodules)
+- [llhttp](https://github.com/nodejs/llhttp)

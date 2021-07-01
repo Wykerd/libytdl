@@ -1,8 +1,8 @@
 # Build libytdl
 
 Guides for building on various platforms are given below:
-- \subpage buildlinux GNU/Linux
-- \subpage buildmacos macOS
+- \subpage buildlinux
+- \subpage buildmacos
 
 \page buildlinux Building on GNU/Linux
 # Prerequisites
@@ -10,11 +10,25 @@ This library uses `cmake` and a modern C compiler like `gcc` or `clang`. You can
 - ArchLinux: `sudo pacman -S cmake gcc`
 - Debian: `sudo apt install cmake gcc`
 
+Additionally `libytdl` depends on `llhttp` which requires nodejs to build. [See download instructions on their website.](https://nodejs.org/en/download/package-manager/)
+
 # Building
-The build process is similar to other CMake projects
+First recursively clone the repository from Github:
 ```
-git clone https://github.com/Wykerd/libytdl.git
+git clone --recursive https://github.com/Wykerd/libytdl.git
 cd libytdl
+```
+
+`libytdl` depends on `llhttp` for its http parser. This dependency must be built seperately as follows:
+```
+cd deps/llhttp
+npm i
+make
+cd ../../
+```
+
+Further the build process is similar to other CMake projects:
+```
 mkdir build
 cd build
 cmake ..
@@ -41,8 +55,27 @@ Next install the external dependencies
 brew install uriparser
 ```
 
+Additionally `libytdl` depends on `llhttp` which requires nodejs to build. Download it with brew as follows:
+```
+brew install nodejs
+```
+
 # Building
-The build process is similar to other CMake projects
+First recursively clone the repository from Github:
+```
+git clone --recursive https://github.com/Wykerd/libytdl.git
+cd libytdl
+```
+
+`libytdl` depends on `llhttp` for its http parser. This dependency must be built seperately as follows:
+```
+cd deps/llhttp
+npm i
+make
+cd ../../
+```
+
+Further the build process is similar to other CMake projects:
 ```
 git clone https://github.com/Wykerd/libytdl.git
 cd libytdl
