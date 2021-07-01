@@ -1,14 +1,14 @@
-#include "img-panda/http/tcp.h"
+#include <ytdl/http/tcp.h>
 /* Standard Library */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-int imp_tcp_client_init (uv_loop_t *loop, imp_tcp_client_t *client) {
+int ytdl_tcp_client_init (uv_loop_t *loop, ytdl_tcp_client_t *client) {
     client->loop = loop;
 
     /* Clear all the pointers */
-    client->url = NULL;
+    memset(&client->url, 0, sizeof(UriUriA));
     client->connect_cb = NULL;
     client->status_cb = NULL;
     client->read_cb = NULL;
@@ -20,16 +20,16 @@ int imp_tcp_client_init (uv_loop_t *loop, imp_tcp_client_t *client) {
     return 1;
 };
 
-static void imp__tcp_client_connect_cb (
+static void ytdl__tcp_client_connect_cb (
     uv_connect_t* req, 
     int status
 ) {
-    imp_tcp_client_t *client = req->data;
+    ytdl_tcp_client_t *client = req->data;
     free(req);
 
     if (status != 0) {
-        imp_net_status_t stat = {
-            .type = FA_NET_E_TCP_CONNECT,
+        ytdl_net_status_t stat = {
+            .type = YTDL_NET_E_TCP_CONNECT,
             .code = status
         };
 
@@ -46,16 +46,16 @@ static void imp__tcp_client_connect_cb (
     client->connect_cb(client);
 };
 
-static void imp__tcp_client_connect (
-    imp_tcp_client_t *client,
+static void ytdl__tcp_client_connect (
+    ytdl_tcp_client_t *client,
     struct sockaddr *addr
 ) {
     int r;
     r = uv_tcp_init(client->loop, &client->tcp);
 
     if (r != 0) {
-        imp_net_status_t stat = {
-            .type = FA_NET_E_TCP_INIT,
+        ytdl_net_status_t stat = {
+            .type = YTDL_NET_E_TCP_INIT,
             .code = r
         };
 
@@ -70,11 +70,11 @@ static void imp__tcp_client_connect (
 
     con_req->data = client;
 
-    r = uv_tcp_connect(con_req, &client->tcp, addr, *imp__tcp_client_connect_cb);
+    r = uv_tcp_connect(con_req, &client->tcp, addr, *ytdl__tcp_client_connect_cb);
 
     if (r != 0) {
-        imp_net_status_t stat = {
-            .type = FA_NET_E_CONNECT_INIT,
+        ytdl_net_status_t stat = {
+            .type = YTDL_NET_E_CONNECT_INIT,
             .code = r
         };
 
@@ -84,16 +84,16 @@ static void imp__tcp_client_connect (
     };
 }
 
-static void imp__tcp_client_getaddrinfo_cb (
+static void ytdl__tcp_client_getaddrinfo_cb (
     uv_getaddrinfo_t* req,
     int status,
     struct addrinfo* res
 ) {
     if (status < 0) {
-        imp_tcp_client_t *client = req->data;
+        ytdl_tcp_client_t *client = req->data;
 
-        imp_net_status_t stat = {
-            .type = FA_NET_E_GETADDRINFO,
+        ytdl_net_status_t stat = {
+            .type = YTDL_NET_E_GETADDRINFO,
             .code = status
         };
 
@@ -102,13 +102,13 @@ static void imp__tcp_client_getaddrinfo_cb (
         goto cleanup;
     };
 
-    imp__tcp_client_connect(req->data, res->ai_addr);
+    ytdl__tcp_client_connect(req->data, res->ai_addr);
 cleanup:
     uv_freeaddrinfo(res);
     free(req);
 }
 
-int imp_tcp_client_connect (imp_tcp_client_t *client, imp_tcp_client_status_cb status_cb, imp_tcp_client_connect_cb connect_cb) {
+int ytdl_tcp_client_connect (ytdl_tcp_client_t *client, ytdl_tcp_client_status_cb status_cb, ytdl_tcp_client_connect_cb connect_cb) {
     client->status_cb = status_cb;
     client->connect_cb = connect_cb;
 
@@ -118,11 +118,28 @@ int imp_tcp_client_connect (imp_tcp_client_t *client, imp_tcp_client_status_cb s
         return -1;
     };
 
-    if (unlikely(client->url == NULL)) {
+    if (unlikely(client->url.scheme.first == NULL)) {
         return -2;
     };
 
-    int numeric_host_v = imp_net_is_numeric_host_v(client->url->host);
+    char *hostname = malloc(client->url.hostText.afterLast - client->url.hostText.first + 1);
+    memcpy(hostname, client->url.hostText.first, client->url.hostText.afterLast - client->url.hostText.first);
+    hostname[client->url.hostText.afterLast - client->url.hostText.first] = 0;
+
+    size_t scheme_len = client->url.scheme.afterLast - client->url.scheme.first;
+
+    char *port;
+    if (client->url.portText.afterLast - client->url.portText.first) {
+        port = malloc(client->url.portText.afterLast - client->url.portText.first + 1);
+        memcpy(port, client->url.portText.first, client->url.portText.afterLast - client->url.portText.first);
+        hostname[client->url.portText.afterLast - client->url.portText.first] = 0;
+    } else if ((scheme_len == 4) && !memcmp(client->url.scheme.first, "http", 4)) {
+        port = strdup("80");
+    } else if ((scheme_len == 5) && !memcmp(client->url.scheme.first, "https", 4)) {
+        port = strdup("443");
+    } else port = strdup("0");
+
+    int numeric_host_v = ytdl_net_is_numeric_host_v(hostname);
 
     if (unlikely(numeric_host_v)) {
         int r;
@@ -131,16 +148,16 @@ int imp_tcp_client_connect (imp_tcp_client_t *client, imp_tcp_client_status_cb s
         case 4:
             {
                 struct sockaddr_in dst;
-                r = uv_ip4_addr(client->url->host, atoi(client->url->port), &dst);
-                imp__tcp_client_connect(client, (struct sockaddr *)&dst);
+                r = uv_ip4_addr(hostname, atoi(port), &dst);
+                ytdl__tcp_client_connect(client, (struct sockaddr *)&dst);
             }
             break;
         
         case 6:
             {
                 struct sockaddr_in6 dst;
-                r = uv_ip6_addr(client->url->host, atoi(client->url->port), &dst);
-                imp__tcp_client_connect(client, (struct sockaddr *)&dst);
+                r = uv_ip6_addr(hostname, atoi(port), &dst);
+                ytdl__tcp_client_connect(client, (struct sockaddr *)&dst);
             }
             break;
 
@@ -164,11 +181,14 @@ int imp_tcp_client_connect (imp_tcp_client_t *client, imp_tcp_client_status_cb s
         uv_getaddrinfo(
             client->loop,
             getaddrinfo_req,
-            *imp__tcp_client_getaddrinfo_cb,
-            client->url->host,
-            client->url->port,
+            *ytdl__tcp_client_getaddrinfo_cb,
+            hostname,
+            port,
             &hints
         );
+
+        free(hostname);
+        free(port);
     }
 
     return 0;

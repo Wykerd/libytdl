@@ -4,13 +4,27 @@
 #include <ytdl/sig.h>
 #include <ytdl/info.h>
 #include <ytdl/net.h>
+#include <ytdl/http/http.h>
+
+#include <uriparser/Uri.h>
+
+void status (ytdl_http_client_t *client, ytdl_net_status_t *status)
+{
+    puts("STATUS CALLED");
+}
+
+void connected_cb (ytdl_http_client_t *client)
+{
+    puts("CONNECTED");
+}
 
 int main () {
+    /*
     // //
     FILE *fd = fopen("/Users/wykerd/Documents/ytdl/watch.html", "rb");
     fseek(fd, 0, SEEK_END);
     size_t buf_size = ftell(fd);
-    fseek(fd, 0, SEEK_SET);  /* same as rewind(f); */
+    fseek(fd, 0, SEEK_SET);
     uint8_t *buf = malloc(buf_size + 1);
     fread(buf, 1, buf_size, fd);
     fclose(fd);
@@ -32,7 +46,7 @@ int main () {
     FILE *fdd = fopen("/Users/wykerd/Documents/ytdl/player.js", "rb");
     fseek(fdd, 0, SEEK_END);
     size_t buff_size = ftell(fdd);
-    fseek(fdd, 0, SEEK_SET);  /* same as rewind(f); */
+    fseek(fdd, 0, SEEK_SET); 
     uint8_t *buff = malloc(buff_size + 1);
     fread(buff, 1, buff_size, fdd);
     fclose(fdd);
@@ -57,5 +71,13 @@ int main () {
     puts(id);
 
     ytdl_info_ctx_free(&info);
-    free(buf);
+    free(buf);*/
+
+    puts("TRYING TO CONNECT");
+
+    ytdl_http_client_t http;
+    ytdl_http_client_init(uv_default_loop(), &http);
+    ytdl_http_client_set_url(&http, "https://example.com/");
+    ytdl_http_client_connect(&http, status, connected_cb);
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }

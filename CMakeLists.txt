@@ -37,7 +37,6 @@ add_library(ytdlc SHARED
 add_library(ytdl SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/src/http/http.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/http/net.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/http/pool.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/http/tcp.c
 )
 
