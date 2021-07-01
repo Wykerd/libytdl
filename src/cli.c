@@ -46,13 +46,16 @@ int main () {
     ytdl_info_set_sig_actions(&info, &actions);
     ytdl_info_extract_formats(&info);
 
-    ytdl_info_sort_formats(&info);
-    printf("%s\n", ytdl_info_get_format_url(&info, 0));
+    printf("Best Audio: %s\n\nBest Video: %s\n\n", 
+        ytdl_info_get_format_url(&info, ytdl_info_get_best_audio_format(&info)),
+        ytdl_info_get_format_url(&info, ytdl_info_get_best_video_format(&info))
+    );
 
     char id[12];
     ytdl_net_get_id_from_url("https://www.youtube.com/watch?v=Y59vIAr8rAI", id);
 
     puts(id);
 
+    ytdl_info_ctx_free(&info);
     free(buf);
 }

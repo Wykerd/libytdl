@@ -302,38 +302,66 @@ static void ytdl__info_format_populate (ytdl_info_ctx_t *info, size_t i)
 
 static void ytdl__info_format_populate_all(ytdl_info_ctx_t *info)
 {
+    if (info->is_fmt_populated)
+        return;
+
     for (size_t i = 0; i < info->formats_size; i++)
         ytdl__info_format_populate(info, i);
+
+    info->is_fmt_populated = 1;
 }
 
-static int ytdl__fmt_cmp (const void *a, const void *b) 
-{
-    int a_score = !!(((*(ytdl_info_format_t **)a)->flags & YTDL_INFO_FORMAT_HAS_AUD) & ((*(ytdl_info_format_t **)a)->flags & YTDL_INFO_FORMAT_HAS_VID));
-    int b_score = !!(((*(ytdl_info_format_t **)b)->flags & YTDL_INFO_FORMAT_HAS_AUD) & ((*(ytdl_info_format_t **)b)->flags & YTDL_INFO_FORMAT_HAS_VID));;
-    a_score = a_score ? a_score : ((*(ytdl_info_format_t **)a)->flags & YTDL_INFO_FORMAT_HAS_VID) ? 2 : 0;
-    b_score = b_score ? b_score : ((*(ytdl_info_format_t **)b)->flags & YTDL_INFO_FORMAT_HAS_VID) ? 2 : 0;
-
-    if (a_score)
-        a_score += (*(ytdl_info_format_t **)a)->width + (*(ytdl_info_format_t **)a)->fps + (*(ytdl_info_format_t **)a)->bitrate;
-    else
-        a_score -= ((*(ytdl_info_format_t **)a)->bitrate * (*(ytdl_info_format_t **)a)->audio_channels) / (*(ytdl_info_format_t **)a)->audio_quality;
-
-    if (b_score)
-        b_score += (*(ytdl_info_format_t **)b)->width + (*(ytdl_info_format_t **)b)->fps + (*(ytdl_info_format_t **)b)->bitrate;
-    else
-    {
-        ytdl_info_format_t *info = (*(ytdl_info_format_t **)b);
-        b_score -= ((*(ytdl_info_format_t **)b)->bitrate * (*(ytdl_info_format_t **)b)->audio_channels) / (*(ytdl_info_format_t **)b)->audio_quality;
-    }
-
-    return b_score - a_score;
-}
-
-void ytdl_info_sort_formats (ytdl_info_ctx_t *info)
+size_t ytdl_info_get_best_video_format (ytdl_info_ctx_t *info)
 {
     ytdl__info_format_populate_all(info);
+    size_t idx = 0;
+    int score = 0;
+    for (size_t i = 0; i < info->formats_size; i++)
+    {
+        if (!(info->formats[i]->flags & YTDL_INFO_FORMAT_HAS_VID))
+            continue;
 
-    qsort(info->formats, info->formats_size, sizeof(ytdl_info_format_t*), ytdl__fmt_cmp);
+        int a_score = !!((info->formats[i]->flags & YTDL_INFO_FORMAT_HAS_AUD) & (info->formats[i]->flags & YTDL_INFO_FORMAT_HAS_VID));
+            a_score = a_score ? a_score : (info->formats[i]->flags & YTDL_INFO_FORMAT_HAS_VID) ? 2 : 0;
+
+        a_score += info->formats[i]->width + info->formats[i]->fps + info->formats[i]->bitrate;
+
+        if (a_score > score) 
+        {
+            idx = i;
+            score = a_score;
+        }
+    };
+
+    return idx;
+}
+
+size_t ytdl_info_get_best_audio_format (ytdl_info_ctx_t *info)
+{
+    ytdl__info_format_populate_all(info);
+    size_t idx = 0;
+    int score = 0;
+    for (size_t i = 0; i < info->formats_size; i++)
+    {
+        if (!(info->formats[i]->flags & YTDL_INFO_FORMAT_HAS_AUD))
+            continue;
+        
+        int a_score = !!((info->formats[i]->flags & YTDL_INFO_FORMAT_HAS_AUD) & (info->formats[i]->flags & YTDL_INFO_FORMAT_HAS_VID));
+            a_score = a_score ? a_score : (info->formats[i]->flags & YTDL_INFO_FORMAT_HAS_VID) ? 2 : 0;
+
+        if (a_score)
+            a_score += info->formats[i]->width + info->formats[i]->fps + info->formats[i]->bitrate;
+        else
+            a_score -= (info->formats[i]->bitrate * info->formats[i]->audio_channels) / info->formats[i]->audio_quality;
+
+        if (a_score < score)
+        {
+            score = a_score;
+            idx = i;
+        }
+    };
+
+    return idx;
 }
 
 char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx) 

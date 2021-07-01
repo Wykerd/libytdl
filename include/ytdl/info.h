@@ -77,6 +77,7 @@ typedef struct ytdl_info_ctx_s {
     yyjson_val *sd_adaptive_formats;
 
     int is_pr_populated;
+    int is_fmt_populated;
 
     // // //
     // Decipher parameters
@@ -153,9 +154,14 @@ void ytdl_info_ctx_free (ytdl_info_ctx_t *info);
 char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx);
 
 /**
- * Sort the formats into order for selection with `ytdl_info_select_format`
+ * @returns The index of the best audio format
  */
-void ytdl_info_sort_formats (ytdl_info_ctx_t *info);
+size_t ytdl_info_get_best_audio_format (ytdl_info_ctx_t *info);
+
+/**
+ * @returns The index of the best video format
+ */
+size_t ytdl_info_get_best_video_format (ytdl_info_ctx_t *info);
 
 /**
  * Get the path for the video player
