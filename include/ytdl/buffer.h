@@ -9,8 +9,9 @@ typedef struct ytdl_buf_s {
   size_t size;
 } ytdl_buf_t;
 
-void ytdl_buf_alloc (ytdl_buf_t *buf, size_t size);
-void ytdl_buf_grow (ytdl_buf_t *buf, double grow_factor);
+char *ytdl_buf_alloc (ytdl_buf_t *buf, size_t size);
+char *ytdl_buf_realloc (ytdl_buf_t *buf, size_t size);
+char *ytdl_buf_grow (ytdl_buf_t *buf, double grow_factor);
 void ytdl_buf_free (ytdl_buf_t *buf);
 
 #endif
