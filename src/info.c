@@ -426,8 +426,9 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
             } 
         } while (((*cur) = querylist->next));
 
+        uriFreeQueryListA(querylist);
+
         if (!sig || !url) {
-            uriFreeQueryListA(querylist);
             if (sig)
                 free(sig);
             if (url)
@@ -490,8 +491,6 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
             free(sig);
         if (sp)
             free(sp);
-
-        uriFreeQueryListA(querylist);
     } 
     else if (info->formats[idx]->url_untouched) 
     { 
