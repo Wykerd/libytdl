@@ -102,6 +102,8 @@ int ytdl_http_client_init (uv_loop_t *loop, ytdl_http_client_t *client) {
     client->tls_write_queue.bufs = malloc(sizeof(ytdl_https_write_job_t *));
     client->tls_write_queue.len = 0;
 
+    client->tls_read_buf = NULL;
+
     client->is_tls = 0;
 
     return 1;
@@ -142,6 +144,9 @@ void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb
         free(client->tls_write_queue.bufs[i]);
     }
     free(client->tls_write_queue.bufs);
+
+    if (client->tls_read_buf)
+        free(client->tls_read_buf);
 
     client->tcp.data = client;
 
