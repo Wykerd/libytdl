@@ -1,8 +1,8 @@
 #include <ytdl/info.h>
 
+#include <ctype.h>
 #include <string.h>
 #include <stdio.h>
-#include <uriparser/Uri.h>
 
 char * strnstr(const char *s, const char *find, size_t slen)
 {
@@ -388,6 +388,39 @@ size_t ytdl_info_get_best_audio_format (ytdl_info_ctx_t *info)
     return idx;
 }
 
+/**
+ * decode a percent-encoded C string with optional path normalization
+ *
+ * The buffer pointed to by @dst must be at least strlen(@src) bytes.
+ * Decoding stops at the first character from @src that decodes to null.
+ *
+ * @param dst       destination buffer
+ * @param src       source buffer
+ * @return          number of valid characters in @dst
+ * @author          Johan Lindh <johan@linkdata.se>
+ * @legalese        BSD licensed (http://opensource.org/licenses/BSD-2-Clause)
+ */
+ptrdiff_t urldecode(char* dst, const char* src)
+{
+    char* org_dst = dst;
+    char ch, a, b;
+    do {
+        ch = *src++;
+        if (ch == '%' && isxdigit(a = src[0]) && isxdigit(b = src[1])) {
+            if (a < 'A') a -= '0';
+            else if(a < 'a') a -= 'A' - 10;
+            else a -= 'a' - 10;
+            if (b < 'A') b -= '0';
+            else if(b < 'a') b -= 'A' - 10;
+            else b -= 'a' - 10;
+            ch = 16 * a + b;
+            src += 2;
+        }
+        *dst++ = ch;
+    } while(ch);
+    return (dst - org_dst) - 1;
+}
+
 char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx) 
 {
     if (info->formats[idx]->url)
@@ -396,48 +429,63 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
     ytdl__info_format_populate(info, idx);
 
     if (info->formats[idx]->cipher) {
-        UriQueryListA *querylist, **cur;
-        int item_count;
+        char *cipher = strdup(info->formats[idx]->cipher);
 
-        const char *cipher = info->formats[idx]->cipher;
+        char *cipher_end = cipher + strlen(cipher);
 
-        if (uriDissectQueryMallocA(&querylist, &item_count, cipher, 
-                                   cipher + strlen(cipher)) != URI_SUCCESS) 
+        //
+        char *sig_start = strstr(cipher, "s=");
+        if (!sig_start)
         {
+            free(cipher);
             return NULL;
         }
+        sig_start += 2;
 
-        char *sig = NULL, 
-             *sp  = NULL, 
-             *url = NULL;
-        cur = &querylist;
-        do {
-            if ((*cur)->key[0] == 's') {
-                if ((*cur)->key[1] == 'p') {
-                    sp = strdup((*cur)->value);
-                    uriUnescapeInPlaceA(sp);
-                } else {
-                    sig = strdup((*cur)->value);
-                    uriUnescapeInPlaceA(sig);
-                }
-            } else if ((*cur)->key[0] == 'u' && (*cur)->key[1] == 'r') {
-                url = strdup((*cur)->value);
-                uriUnescapeInPlaceA(url);
-            } 
-        } while (((*cur) = querylist->next));
-
-        uriFreeQueryListA(querylist);
-
-        if (!sig || !url) {
-            if (sig)
-                free(sig);
-            if (url)
-                free(url);
-            if (sp)
-                free(sp);
-            return NULL;
-        }
+        char *sig_end = strstr(sig_start, "&");
+        if (!sig_end)
+            sig_end = cipher_end;
         
+        //
+        char *sp_start = strstr(cipher, "sp=");
+        if (!sp_start)
+        {
+            free(cipher);
+            return NULL;
+        }
+        sp_start += 3;
+
+        char *sp_end = strstr(sp_start, "&");
+        if (!sp_end)
+            sp_end = cipher_end;
+        
+        //
+        char *url_start = strstr(cipher, "url=");
+        if (!url_start)
+        {
+            free(cipher);
+            return NULL;
+        }
+        url_start += 4;
+
+        char *url_end = strstr(url_start, "&");
+        if (!url_end)
+            url_end = cipher_end;
+
+        *sig_end = 0;
+        *sp_end = 0;
+        *url_end = 0;
+
+        char *sig = calloc(sig_end - sig_start + 1, 1), 
+             *sp  = calloc(sp_end - sp_start + 1, 1), 
+             *url = calloc(url_end - url_start + 1, 1);
+
+        urldecode(sig, sig_start);
+        urldecode(sp, sp_start);
+        urldecode(url, url_start);
+        
+        free(cipher);
+
         for (size_t i = 0; i < info->sig_actions->actions_size; i++)
         {
             switch (info->sig_actions->actions[i])
@@ -493,10 +541,10 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
             free(sp);
     } 
     else if (info->formats[idx]->url_untouched) 
-    { 
-        info->formats[idx]->url = strdup(info->formats[idx]->url_untouched);
+    {
+        info->formats[idx]->url = calloc(strlen(info->formats[idx]->url_untouched) + 1, 1);
 
-        uriUnescapeInPlaceA(info->formats[idx]->url);
+        urldecode(info->formats[idx]->url, info->formats[idx]->url_untouched);
     }
     else return NULL;
 

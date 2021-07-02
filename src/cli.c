@@ -7,7 +7,7 @@ int main ()
 {
     ytdl_dl_ctx_t ctx;
     ytdl_dl_ctx_init(uv_default_loop(), &ctx);
-    ytdl_dl_set_video_url(&ctx, "https://www.youtube.com/watch?v=qquhXmDtynM&list=PLASU6lE9dlHDtAc-OUsDIO45V-3A0Fxwd&index=6");
+    ytdl_dl_set_video_url(&ctx, "https://www.youtube.com/watch?v=XDNFAujgJb0");
     ytdl_dl_ctx_run(&ctx);
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
     ytdl_dl_shutdown(&ctx);
