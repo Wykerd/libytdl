@@ -91,8 +91,12 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
 
     char *player_response_s = strnstr((const char *)buf, " ytInitialPlayerResponse = ", buf_len) + 27;
     size_t player_response_idx = (const uint8_t *)player_response_s - buf;
-    char *player_response_e = strnstr(player_response_s, ";</script>", 
-                                      buf_len - player_response_idx);
+    char *player_response_e_1 = strnstr(player_response_s, ";</script>", 
+                                        buf_len - player_response_idx);
+    char *player_response_e_2 = strnstr(player_response_s, ";var ", 
+                                        buf_len - player_response_idx);
+
+    char *player_response_e = player_response_e_1 < player_response_e_2 ? player_response_e_1 : player_response_e_2;
 
     info->init_pr_doc = yyjson_read(player_response_s, 
                                     player_response_e - player_response_s, 0);

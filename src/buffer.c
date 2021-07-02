@@ -27,5 +27,7 @@ char *ytdl_buf_grow (ytdl_buf_t *buf, double grow_factor)
 
 void ytdl_buf_free (ytdl_buf_t *buf)
 {
-    free(buf->base);
+    if (buf->base != NULL)
+        free(buf->base);
+    buf->base = NULL;
 }

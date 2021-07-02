@@ -36,12 +36,12 @@ const char yt_valid_id_map[256] = {
 void ytdl_net_request_player_js (ytdl_buf_t *buf, const char* player_path) 
 {
     buf->len = 0;
-    if (!ytdl_buf_alloc(buf, 512))
+    if (!ytdl_buf_alloc(buf, 356))
         return;
 
     snprintf(
         buf->base, 
-        256,
+        356,
         "GET %s HTTP/1.1\r\n"
         "Host: www.youtube.com\r\n"
         "Connection: keep-alive\r\n"
@@ -56,7 +56,7 @@ void ytdl_net_request_player_js (ytdl_buf_t *buf, const char* player_path)
 void ytdl_net_request_watch_html (ytdl_buf_t *buf, const char id[YTDL_ID_SIZE]) 
 {
     buf->len = 0;
-    if (!ytdl_buf_alloc(buf, 512))
+    if (!ytdl_buf_alloc(buf, 256))
         return;
 
     snprintf(

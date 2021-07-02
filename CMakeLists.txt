@@ -38,7 +38,8 @@ add_library(ytdl SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/src/http/http.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/http/net.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/http/tcp.c
-)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/dl.c
+) 
 
 add_executable(ytdlcli
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c

@@ -1,6 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <ytdl/dl.h>
+
+int main ()
+{
+    ytdl_dl_ctx_t ctx;
+    ytdl_dl_ctx_init(uv_default_loop(), &ctx);
+    ytdl_dl_set_video_url(&ctx, "https://www.youtube.com/watch?v=qquhXmDtynM&list=PLASU6lE9dlHDtAc-OUsDIO45V-3A0Fxwd&index=6");
+    ytdl_dl_ctx_run(&ctx);
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+    ytdl_dl_shutdown(&ctx);
+}
+
+/*
 #include <ytdl/sig.h>
 #include <ytdl/info.h>
 #include <ytdl/net.h>
@@ -10,16 +23,43 @@
 
 void status (ytdl_http_client_t *client, ytdl_net_status_t *status)
 {
-    puts("STATUS CALLED");
+    printf("STATUS CALLED %lld %s\n", status->type, status->code);
 }
 
 void connected_cb (ytdl_http_client_t *client)
 {
     puts("CONNECTED");
+    ytdl_buf_t buf;
+    ytdl_net_request_watch_html(&buf, "2KrzvBlsS8k");
+    ytdl_http_client_write(client, &buf, status);
+    ytdl_buf_free(&buf);
+}
+
+int body_cb (llhttp_t* parser, const char *at, size_t length)
+{
+    printf("BODY\n%.*s\n\n", length, at);
+    return 0;
+}
+
+int imp__pool_on_message_complete (llhttp_t* parser)
+{
+    puts("FU");
+    return 0;
 }
 
 int main () {
-    /*
+    puts("TRYING TO CONNECT");
+
+    ytdl_ssl_init();
+
+    ytdl_http_client_t *http = malloc(sizeof(ytdl_http_client_t));
+    ytdl_http_client_init(uv_default_loop(), http);
+    http->parser_settings.on_body = body_cb;
+    http->parser_settings.on_message_complete = imp__pool_on_message_complete;
+    http->settings.keep_alive = 1;
+    ytdl_http_client_connect(http, 1, "www.youtube.com", "443", status, connected_cb);
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
     // //
     FILE *fd = fopen("/Users/wykerd/Documents/ytdl/watch.html", "rb");
     fseek(fd, 0, SEEK_END);
@@ -71,13 +111,6 @@ int main () {
     puts(id);
 
     ytdl_info_ctx_free(&info);
-    free(buf);*/
-
-    puts("TRYING TO CONNECT");
-
-    ytdl_http_client_t http;
-    ytdl_http_client_init(uv_default_loop(), &http);
-    ytdl_http_client_set_url(&http, "https://example.com/");
-    ytdl_http_client_connect(&http, status, connected_cb);
-    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+    free(buf);
 }
+*/
