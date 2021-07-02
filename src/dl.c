@@ -158,4 +158,6 @@ int ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx)
 
     ytdl_buf_free(&ctx->player_js);
     ytdl_buf_free(&ctx->response);
+
+    ytdl_info_ctx_free(&ctx->info);
 }
