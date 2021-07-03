@@ -1,11 +1,19 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(ytdl LANGUAGES C VERSION 0.0.0)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
+# Compiler Config
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)  
+
+# Build Options
+option(BUILD_SHARED_LIBS "Build shared libraries (rather than static ones)" ON)
+option(YTDL_BUILD_HTTP   "Build the http client (libytdl)" ON)
+option(YTDL_BUILD_CLI    "Build the commandline interface" ON)
+option(YTDL_BUILD_REGEXC "Build the RegExp compile tool" OFF)
+
+# Find dependencies
 find_package(uriparser REQUIRED)
 find_package(UV REQUIRED)
 find_package(Threads REQUIRED)
@@ -16,17 +24,18 @@ else()
     find_package(OpenSSL REQUIRED)
 endif()
 
+# Targets
 add_library(regexp STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cutils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/libunicode.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/libregexp.c
 )
 
-add_executable(regexc 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/regexc.c
-)
+target_include_directories(regexp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_library(ytdlc SHARED
+set_target_properties(regexp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+add_library(ytdlc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sig.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/buffer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/yyjson.c
@@ -34,70 +43,49 @@ add_library(ytdlc SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/src/net.c
 )
 
-add_library(ytdl SHARED
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/http/http.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/http/net.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/http/tcp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/dl.c
-) 
-
-add_executable(ytdlcli
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c
-)
-
-# Properties
-set_target_properties(ytdlc PROPERTIES
-    C_STANDARD 11
-    C_STANDARD_REQUIRED ON
-)
-
-set_target_properties(ytdl PROPERTIES
-    C_STANDARD 11
-    C_STANDARD_REQUIRED ON
-)
-
-set_target_properties(ytdlcli PROPERTIES
-    C_STANDARD 11
-    C_STANDARD_REQUIRED ON
-)
-
-# Include directories
-target_include_directories(regexp PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include 
-)
-
-target_include_directories(ytdlc PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include 
-)
-
-target_include_directories(ytdl PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include 
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/build
-    ${OPENSSL_INCLUDE_DIR}
-    ${UV_INCLUDE_DIR}
-)
-
-# Link libraries
-target_link_libraries(regexc 
-    regexp
-)
-
-target_link_libraries(ytdlc 
+target_include_directories(ytdlc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(ytdlc PRIVATE
     regexp 
     uriparser::uriparser
 )
 
-target_link_libraries(ytdl 
-    ytdlc
+if (YTDL_BUILD_REGEXC)
+    add_executable(regexc 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/regexc.c
+    )
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/build/libllhttp.a
-    OpenSSL::SSL 
-    OpenSSL::Crypto 
-    ${UV_LIBRARIES} 
-    
-    Threads::Threads
-)
+    target_link_libraries(regexc PRIVATE regexp)
+endif()
 
-target_link_libraries(ytdlcli
-    ytdl
-)
+if (YTDL_BUILD_HTTP)
+    add_library(ytdl
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/http/http.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/http/net.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/http/tcp.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/dl.c
+    ) 
+
+    target_include_directories(ytdl PUBLIC 
+        ${CMAKE_CURRENT_SOURCE_DIR}/include 
+        ${UV_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/build
+        ${OPENSSL_INCLUDE_DIR}
+    )
+
+    target_link_libraries(ytdl PRIVATE
+        ytdlc
+
+        ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/build/libllhttp.a
+        OpenSSL::SSL 
+        OpenSSL::Crypto 
+        
+        Threads::Threads
+    )
+
+    target_link_libraries(ytdl PUBLIC ${UV_LIBRARIES})
+
+    if (YTDL_BUILD_CLI)
+        add_executable(ytdlcli ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c)
+        target_link_libraries(ytdlcli PRIVATE ytdl)
+    endif()
+endif()
