@@ -55,9 +55,7 @@ int ytdl_dl_get_info (ytdl_dl_ctx_t *ctx, const char id[YTDL_ID_SIZE],
                       ytdl_dl_complete_cb on_complete);
 void ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx);
 
-void ytdl_dl_player_cache_save();
-void ytdl_dl_player_cache_save_buf();
-void ytdl_dl_player_cache_load();
-void ytdl_dl_player_cache_get();
+void ytdl_dl_player_cache_save_file(ytdl_dl_ctx_t *ctx, FILE *fd);
+int ytdl_dl_player_cache_load_file(ytdl_dl_ctx_t *ctx, FILE *fd);
 
 #endif
