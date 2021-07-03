@@ -26,7 +26,7 @@ typedef struct ytdl_dl_ctx_s {
 
 int ytdl_dl_ctx_init (uv_loop_t *loop, ytdl_dl_ctx_t *ctx);
 int ytdl_dl_ctx_run (ytdl_dl_ctx_t *ctx);
-int ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx);
+void ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx);
 int ytdl_dl_set_video_url (ytdl_dl_ctx_t *ctx, const char *video_url);
 
 #endif

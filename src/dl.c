@@ -134,7 +134,7 @@ static void ytdl__connected_cb (ytdl_http_client_t *client)
     ytdl_dl_ctx_t *ctx = (ytdl_dl_ctx_t *)client->data;
     ytdl_buf_t buf;
     ytdl_net_request_watch_html(&buf, ctx->id);
-    ytdl_http_client_write(client, &buf, ytdl__write_cb);
+    ytdl_http_client_write(client, (uv_buf_t *)&buf, ytdl__write_cb);
     ytdl_buf_free(&buf);
 }
 
@@ -151,7 +151,7 @@ int ytdl_dl_ctx_run (ytdl_dl_ctx_t *ctx)
     return 0;
 }
 
-int ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx)
+void ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx)
 {
     if (ctx->status  == YTDL_DL_IS_STARTED)
         ytdl_http_client_shutdown(&ctx->http, ytdl__close_cb);
