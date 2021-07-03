@@ -64,6 +64,7 @@ if (YTDL_BUILD_HTTP)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/net.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/tcp.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/dl.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/hashmap.c
     ) 
 
     target_include_directories(ytdl PUBLIC 
@@ -87,6 +88,6 @@ if (YTDL_BUILD_HTTP)
 
     if (YTDL_BUILD_CLI)
         add_executable(ytdlcli ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c)
-        target_link_libraries(ytdlcli PRIVATE ytdl)
+        target_link_libraries(ytdlcli PRIVATE ytdl ytdlc)
     endif()
 endif()
