@@ -14,11 +14,12 @@ option(YTDL_BUILD_CLI    "Build the commandline interface" ON)
 option(YTDL_BUILD_REGEXC "Build the RegExp compile tool" OFF)
 
 # Find dependencies
-find_package(uriparser REQUIRED)
 find_package(UV REQUIRED)
 find_package(Threads REQUIRED)
 if(APPLE)
-    set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+    if(NOT OPENSSL_ROOT_DIR)
+        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+    endif()
     find_package(OpenSSL REQUIRED)
 else()
     find_package(OpenSSL REQUIRED)
@@ -41,12 +42,12 @@ add_library(ytdlc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/yyjson.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/info.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/net.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/url_parser.c
 )
 
 target_include_directories(ytdlc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(ytdlc PRIVATE
     regexp 
-    uriparser::uriparser
 )
 
 if (YTDL_BUILD_REGEXC)

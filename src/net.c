@@ -1,5 +1,5 @@
 #include <ytdl/net.h>
-#include <uriparser/Uri.h>
+#include <ytdl/url_parser.h>
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -78,70 +78,65 @@ void ytdl_net_get_watch_url (char url[YTDL_WATCH_URL_SIZE], char id[YTDL_ID_SIZE
     sprintf(url, "%s%s", "https://www.youtube.com/watch?v=", id);
 }
 
-int ytdl_net_get_id_from_url (const char *url_str, char id[YTDL_ID_SIZE]) 
+int ytdl_net_get_id_from_url (const char *url_buf, size_t url_len, char id[YTDL_ID_SIZE]) 
 {
-    UriUriA uri;
-    const char * error_pos;
-    UriQueryListA * queryList, **cur;
-    int itemCount;
+    struct http_parser_url u;
 
-    if (uriParseSingleUriA(&uri, url_str, &error_pos) != URI_SUCCESS)
+    http_parser_url_init(&u);
+    if (http_parser_parse_url(url_buf, url_len, 0, &u))
         return -1;
 
     for (int i = 0; i < 6; i++)
-        if (!strncmp(uri.hostText.first, yt_hosts[i],
-                     uri.hostText.afterLast - uri.hostText.first)) 
+        if (!strncmp(url_buf + u.field_data[UF_HOST].off, yt_hosts[i],
+                     u.field_data[UF_HOST].len)) 
         {
             goto valid_host;
         }
 
 fail:
-    uriFreeUriMembersA(&uri);
     return 1;
 valid_host:
+    if (u.field_data[UF_PATH].len >= YTDL_ID_LEN + 1)
+        if ((url_buf + u.field_data[UF_PATH].off + u.field_data[UF_PATH].len - YTDL_ID_LEN - 1)[0] == '/')
+        {
+            for (int i = 0; i < YTDL_ID_LEN; i++) 
+                if (!yt_valid_id_map[(url_buf + u.field_data[UF_PATH].off + 1)[i]])
+                    goto invalid_path_tail;
 
-    if (uri.pathTail->text.afterLast - uri.pathTail->text.first == YTDL_ID_LEN) 
-    {
-        for (int i = 0; i < YTDL_ID_LEN; i++) {
-            if (!yt_valid_id_map[uri.pathTail->text.first[i]])
-                goto invalid_path_tail;
+            memcpy(id, url_buf + u.field_data[UF_PATH].off + u.field_data[UF_PATH].len - YTDL_ID_LEN, YTDL_ID_LEN);
+            id[YTDL_ID_LEN] = 0;
+            goto match_found;
         }
-
-        memcpy(id, uri.pathTail->text.first, YTDL_ID_LEN);
-        id[YTDL_ID_LEN] = 0;
-        goto suffix_found;
-    }
 
 invalid_path_tail:
-    if (uriDissectQueryMallocA(&queryList, &itemCount, uri.query.first,
-                               uri.query.afterLast) != URI_SUCCESS) 
+    if (u.field_data[UF_QUERY].len >= YTDL_ID_LEN + 2) 
     {
-        goto fail;    
-    }
+        if (((url_buf + u.field_data[UF_QUERY].off)[0] == 'v') && ((url_buf + u.field_data[UF_QUERY].off)[1] == '='))
+        {
+            for (int i = 0; i < YTDL_ID_LEN; i++) 
+                if (!yt_valid_id_map[(url_buf + u.field_data[UF_QUERY].off + 2)[i]])
+                    goto fail;
 
-    cur = &queryList;
-    do {
-        if (((*cur)->key[0] == 'v') && ((*cur)->key[1] == 0)) {
-            if (strlen((*cur)->value) == YTDL_ID_LEN) {
-                for (int i = 0; i < YTDL_ID_LEN; i++) {
-                    if (!yt_valid_id_map[(*cur)->value[i]])
-                        goto no_option;
-                    }
-
-                    memcpy(id, (*cur)->value, YTDL_ID_LEN);
-                    id[YTDL_ID_LEN] = 0;
-                    goto v_param_found;
-                }
+            memcpy(id, url_buf + u.field_data[UF_QUERY].off + 2, YTDL_ID_LEN);
+            id[YTDL_ID_LEN] = 0;
+            goto match_found;
         }
-    } while (((*cur) = queryList->next));
 
-no_option:
-    uriFreeQueryListA(queryList);
-    uriFreeUriMembersA(&uri);
-    return 1;
-v_param_found:
-    uriFreeQueryListA(queryList);
-suffix_found:
-    uriFreeUriMembersA(&uri);
+        for (size_t x = 0; x < u.field_data[UF_QUERY].len - YTDL_ID_LEN; x++)
+        {
+            if (((url_buf + u.field_data[UF_QUERY].off)[x] == 'v') && ((url_buf + u.field_data[UF_QUERY].off)[x + 1] == '='))
+            {
+                for (int i = 0; i < YTDL_ID_LEN; i++) 
+                    if (!yt_valid_id_map[(url_buf + u.field_data[UF_QUERY].off + x + 2)[i]])
+                        goto fail;
+
+                memcpy(id, url_buf + u.field_data[UF_QUERY].off + x + 2, YTDL_ID_LEN);
+                id[YTDL_ID_LEN] = 0;
+                goto match_found;
+            }
+        }
+    }
+    goto fail;
+match_found:
     return 0;
-};
+}

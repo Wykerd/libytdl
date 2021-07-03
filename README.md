@@ -18,9 +18,6 @@ You can pick to use `libytdlc` if your project uses and existing http implemenat
 
 # Dependencies
 
-## External
-- [uriparser](https://uriparser.github.io/)
-
 ## Included (Packaged)
 - libregexp & libunicode from [Fabrice Bellard's QuickJS engine](https://bellard.org/quickjs/)
 - [yyjson](https://github.com/ibireme/yyjson)

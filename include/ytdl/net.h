@@ -11,11 +11,12 @@
  * Not very accurate but fast way to find youtube video url
  * 
  * May match invalid urls!
- * @param url_str The URL cstring to get the ID from
+ * @param url_buf The URL buffer to get the ID from
+ * @param url_len The length of the url buffer
  * @param id ID string to populate
  * @returns 0 if successful. -1 if invalid url and 1 if not matched.
  */
-int ytdl_net_get_id_from_url (const char *url_str, char id[YTDL_ID_SIZE]);
+int ytdl_net_get_id_from_url (const char *url_buf, size_t url_len, char id[YTDL_ID_SIZE]);
 
 /**
  * Get the watch url for the specified id

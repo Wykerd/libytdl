@@ -126,7 +126,7 @@ int ytdl_dl_ctx_init (uv_loop_t *loop, ytdl_dl_ctx_t *ctx)
 
 int ytdl_dl_set_video_url (ytdl_dl_ctx_t *ctx, const char *video_url) 
 {
-    return ytdl_net_get_id_from_url(video_url, ctx->id);
+    return ytdl_net_get_id_from_url(video_url, strlen(video_url), ctx->id);
 }
 
 static void ytdl__connected_cb (ytdl_http_client_t *client)
