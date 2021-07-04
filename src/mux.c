@@ -2,12 +2,73 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
+static int ytdl__mux_write_v_frame (AVFormatContext *v_fmt_ctx, AVFormatContext *o_fmt_ctx, 
+                                    AVPacket *packet, int64_t *next_pts, int video_st, int loglevel) 
+{
+    int ret;
+    AVStream *in_stream, *out_stream;
+    ret = av_read_frame(v_fmt_ctx, packet);
+    if (ret < 0)
+        return 0;
+        
+    in_stream = v_fmt_ctx->streams[packet->stream_index];
+    if (packet->stream_index != video_st) {
+        av_packet_unref(packet);
+        return 1;
+    }
+    packet->stream_index = 1;
+    out_stream = o_fmt_ctx->streams[packet->stream_index];
+    *next_pts = packet->pts;
+    
+    av_packet_rescale_ts(packet, in_stream->time_base, out_stream->time_base);
+    
+    ret = av_interleaved_write_frame(o_fmt_ctx, packet);
+    if (ret < 0) {
+        if (loglevel > YTDL_MUX_LOG_QUIET)
+            fprintf(stderr, "Error muxing packet\n");
+        return 0;
+    }
+    av_packet_unref(packet);
+    return 1;
+}
+
+static int ytdl__mux_write_a_frame (AVFormatContext *a_fmt_ctx, AVFormatContext *o_fmt_ctx, 
+                                    AVPacket *packet, int64_t *next_pts, int audio_st, int loglevel)
+{
+    int ret;
+    AVStream *in_stream, *out_stream;
+    ret = av_read_frame(a_fmt_ctx, packet);
+    if (ret < 0)
+        return 0;
+        
+    in_stream = a_fmt_ctx->streams[packet->stream_index];
+    if (packet->stream_index != audio_st) {
+        av_packet_unref(packet);
+        return 1;
+    }
+    packet->stream_index = 0;
+    out_stream = o_fmt_ctx->streams[packet->stream_index];
+    *next_pts = packet->pts;
+    
+    av_packet_rescale_ts(packet, in_stream->time_base, out_stream->time_base);
+    
+    ret = av_interleaved_write_frame(o_fmt_ctx, packet);
+    if (ret < 0) {
+        if (loglevel > YTDL_MUX_LOG_QUIET)
+            fprintf(stderr, "Error muxing packet\n");
+        return 0;
+    }
+    av_packet_unref(packet);
+    return 1;
+}
+
 int ytdl_mux_files (const char *audio_path, const char *video_path, const char *output_path, ytdl_mux_loglevel loglevel)
 {
     int video_st = -1, audio_st = -1;
+    int64_t next_v_pts = 0, next_a_pts = 0;
     AVFormatContext *a_fmt_ctx = NULL, *v_fmt_ctx = NULL, *o_fmt_ctx;
     AVPacket packet;
-    int ret;
+    int ret, encode_video = 1, encode_audio = 1;
 
     avformat_alloc_output_context2(&o_fmt_ctx, NULL, "matroska", output_path);
     if (!o_fmt_ctx)
@@ -100,7 +161,6 @@ int ytdl_mux_files (const char *audio_path, const char *video_path, const char *
                 ret = AVERROR_UNKNOWN;
                 goto exit_3;
             }
-            in_codecpar->codec_tag = 0;
             ret = avcodec_parameters_copy(out_stream->codecpar, in_codecpar);
             if (ret < 0) {
                 if (loglevel > YTDL_MUX_LOG_QUIET)
@@ -137,54 +197,15 @@ int ytdl_mux_files (const char *audio_path, const char *video_path, const char *
         goto exit_3;
     }
 
-    while (1) {
-        AVStream *in_stream, *out_stream;
-        ret = av_read_frame(a_fmt_ctx, &packet);
-        if (ret < 0)
-            break;
-
-        in_stream = a_fmt_ctx->streams[packet.stream_index];
-        if (packet.stream_index != audio_st) {
-            av_packet_unref(&packet);
-            continue;
+    while (encode_audio || encode_video) {
+        if (encode_video && (!encode_audio || av_compare_ts(next_v_pts, v_fmt_ctx->streams[video_st]->time_base, next_a_pts, a_fmt_ctx->streams[audio_st]->time_base)))
+        {
+            encode_video = ytdl__mux_write_v_frame(v_fmt_ctx, o_fmt_ctx, &packet, &next_v_pts, video_st, loglevel);
+        } 
+        else 
+        {
+            encode_audio = ytdl__mux_write_a_frame(a_fmt_ctx, o_fmt_ctx, &packet, &next_a_pts, audio_st, loglevel);
         }
-        packet.stream_index = 0;
-        out_stream = o_fmt_ctx->streams[packet.stream_index];
-        
-        av_packet_rescale_ts(&packet, in_stream->time_base, out_stream->time_base);
-        
-        ret = av_interleaved_write_frame(o_fmt_ctx, &packet);
-        if (ret < 0) {
-            if (loglevel > YTDL_MUX_LOG_QUIET)
-                fprintf(stderr, "Error muxing packet\n");
-            break;
-        }
-        av_packet_unref(&packet);
-    }
-
-    while (1) {
-        AVStream *in_stream, *out_stream;
-        ret = av_read_frame(v_fmt_ctx, &packet);
-        if (ret < 0)
-            break;
-            
-        in_stream = v_fmt_ctx->streams[packet.stream_index];
-        if (packet.stream_index != video_st) {
-            av_packet_unref(&packet);
-            continue;
-        }
-        packet.stream_index = 1;
-        out_stream = o_fmt_ctx->streams[packet.stream_index];
-        
-        av_packet_rescale_ts(&packet, in_stream->time_base, out_stream->time_base);
-        
-        ret = av_interleaved_write_frame(o_fmt_ctx, &packet);
-        if (ret < 0) {
-            if (loglevel > YTDL_MUX_LOG_QUIET)
-                fprintf(stderr, "Error muxing packet\n");
-            break;
-        }
-        av_packet_unref(&packet);
     }
 
     ret = av_write_trailer(o_fmt_ctx);
