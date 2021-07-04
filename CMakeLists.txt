@@ -9,10 +9,18 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Build Options
 option(BUILD_SHARED_LIBS "Build shared libraries (rather than static ones)" ON)
-option(YTDL_BUILD_HTTP   "Build the http client (libytdl)" ON)
+option(YTDL_BUILD_HTTP   "Build the http client" ON)
 option(YTDL_BUILD_CLI    "Build the commandline interface" ON)
 option(YTDL_BUILD_MUX    "Build the small ffmpeg based muxer library" ON)
 option(YTDL_BUILD_REGEXC "Build the RegExp compile tool" OFF)
+
+# Check build option validity
+if(YTDL_BUILD_CLI AND NOT YTDL_BUILD_HTTP)
+    message(FATAL_ERROR "Cannot build cli without building http client")
+endif()
+if(YTDL_BUILD_CLI AND NOT YTDL_BUILD_MUX)
+    message(FATAL_ERROR "Cannot build cli without building muxer")
+endif()
 
 # Find dependencies
 find_package(Threads REQUIRED)
@@ -109,6 +117,6 @@ if (YTDL_BUILD_HTTP)
         add_executable(ytdlcli 
             ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c
         )
-        target_link_libraries(ytdlcli PRIVATE ytdlhttp ytdlcore)
+        target_link_libraries(ytdlcli PRIVATE ytdlhttp ytdlcore ytdlmux)
     endif()
 endif()

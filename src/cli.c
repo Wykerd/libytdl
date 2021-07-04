@@ -3,6 +3,7 @@
 
 #include <ytdl/dl.h>
 #include <ytdl/info.h>
+#include <ytdl/mux.h>
 
 static void on_complete (ytdl_dl_ctx_t* ctx, ytdl_dl_video_t* vid)
 {
@@ -62,5 +63,7 @@ int main (int argc, char **argv)
     
     ytdl_dl_ctx_connect(&ctx);
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+    // ytdl_mux_files("./audio", "./video", "./output_video.mkv", YTDL_MUX_LOG_VERBOSE);
 }
 

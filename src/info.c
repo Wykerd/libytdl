@@ -190,7 +190,10 @@ const char *ytdl_info_get_playability_status_message (ytdl_info_ctx_t *info)
     yyjson_val *messages = yyjson_obj_get(info->ps, "messages");
 
     if (!messages)
-        return NULL;
+    {
+        yyjson_val *reason = yyjson_obj_get(info->ps, "reason");
+        return yyjson_get_str(reason);
+    }
 
     if (!yyjson_arr_size(messages))
         return NULL;
