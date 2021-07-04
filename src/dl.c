@@ -348,7 +348,7 @@ static int ytdl__media_chunk_complete_cb (llhttp_t* parser)
                 ctx->format_url + ctx->url.field_data[UF_PATH].off, ctx->url.field_data[UF_PATH].len,
                 ctx->format_url + ctx->url.field_data[UF_QUERY].off, ctx->url.field_data[UF_QUERY].len,
                 ctx->format_url + ctx->url.field_data[UF_HOST].off, ctx->url.field_data[UF_HOST].len,
-                ++ctx->last_chunk_end, 0
+                ctx->last_chunk_end + 1, 0
             );
         }
         else 
@@ -357,7 +357,7 @@ static int ytdl__media_chunk_complete_cb (llhttp_t* parser)
                 ctx->format_url + ctx->url.field_data[UF_PATH].off, ctx->url.field_data[UF_PATH].len,
                 ctx->format_url + ctx->url.field_data[UF_QUERY].off, ctx->url.field_data[UF_QUERY].len,
                 ctx->format_url + ctx->url.field_data[UF_HOST].off, ctx->url.field_data[UF_HOST].len,
-                ++ctx->last_chunk_end, ctx->last_chunk_end + YTDL_DL_CHUNK_SIZE
+                ctx->last_chunk_end + 1, ctx->last_chunk_end + YTDL_DL_CHUNK_SIZE
             );
             ctx->last_chunk_end += YTDL_DL_CHUNK_SIZE;
         };
