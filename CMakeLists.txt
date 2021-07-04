@@ -11,11 +11,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 option(BUILD_SHARED_LIBS "Build shared libraries (rather than static ones)" ON)
 option(YTDL_BUILD_HTTP   "Build the http client (libytdl)" ON)
 option(YTDL_BUILD_CLI    "Build the commandline interface" ON)
+option(YTDL_BUILD_MUX    "Build the small ffmpeg based muxer library" ON)
 option(YTDL_BUILD_REGEXC "Build the RegExp compile tool" OFF)
 
 # Find dependencies
-find_package(UV REQUIRED)
 find_package(Threads REQUIRED)
+find_package(UV REQUIRED)
 if(APPLE)
     if(NOT OPENSSL_ROOT_DIR)
         set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
@@ -36,7 +37,7 @@ target_include_directories(regexp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set_target_properties(regexp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-add_library(ytdlc
+add_library(ytdlcore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sig.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/buffer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/yyjson.c
@@ -45,8 +46,8 @@ add_library(ytdlc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/url_parser.c
 )
 
-target_include_directories(ytdlc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(ytdlc PRIVATE
+target_include_directories(ytdlcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(ytdlcore PRIVATE
     regexp 
 )
 
@@ -58,8 +59,26 @@ if (YTDL_BUILD_REGEXC)
     target_link_libraries(regexc PRIVATE regexp)
 endif()
 
+if (YTDL_BUILD_MUX)
+    find_package(FFMPEG REQUIRED COMPONENTS avformat avcodec)
+    add_library(ytdlmux
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/mux.c
+    )
+    target_include_directories(ytdlmux PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include 
+    )
+    target_include_directories(ytdlmux PRIVATE 
+        ${FFMPEG_avcodec_INCLUDE_DIRS}
+        ${FFMPEG_avformat_INCLUDE_DIRS}
+    )
+    target_link_libraries(ytdlmux PRIVATE 
+        FFMPEG::avformat
+        FFMPEG::avcodec
+    )
+endif() 
+
 if (YTDL_BUILD_HTTP)
-    add_library(ytdl
+    add_library(ytdlhttp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/http.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/net.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/tcp.c
@@ -67,15 +86,15 @@ if (YTDL_BUILD_HTTP)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/hashmap.c
     ) 
 
-    target_include_directories(ytdl PUBLIC 
+    target_include_directories(ytdlhttp PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/include 
         ${UV_INCLUDE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/build
         ${OPENSSL_INCLUDE_DIR}
     )
 
-    target_link_libraries(ytdl PRIVATE
-        ytdlc
+    target_link_libraries(ytdlhttp PRIVATE
+        ytdlcore
 
         ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/build/libllhttp.a
         OpenSSL::SSL 
@@ -84,10 +103,12 @@ if (YTDL_BUILD_HTTP)
         Threads::Threads
     )
 
-    target_link_libraries(ytdl PUBLIC ${UV_LIBRARIES})
+    target_link_libraries(ytdlhttp PUBLIC ${UV_LIBRARIES})
 
     if (YTDL_BUILD_CLI)
-        add_executable(ytdlcli ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c)
-        target_link_libraries(ytdlcli PRIVATE ytdl ytdlc)
+        add_executable(ytdlcli 
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c
+        )
+        target_link_libraries(ytdlcli PRIVATE ytdlhttp ytdlcore)
     endif()
 endif()
