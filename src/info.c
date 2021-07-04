@@ -271,60 +271,66 @@ void ytdl_info_set_sig_actions (ytdl_info_ctx_t *info, ytdl_sig_actions_t *sig_a
     info->sig_actions = sig_actions;
 }
 
-static void ytdl__info_format_populate (ytdl_info_ctx_t *info, size_t i) 
+static void ytdl__info_format_populate2 (ytdl_info_format_t *format) 
 {
-    if (info->formats[i]->flags & YTDL_INFO_FORMAT_POPULATED)
+    if (format->flags & YTDL_INFO_FORMAT_POPULATED)
         return;
     
     yyjson_val *key, *val;
     yyjson_obj_iter iter;
-    yyjson_obj_iter_init(info->formats[i]->val, &iter);
+    yyjson_obj_iter_init(format->val, &iter);
     while ((key = yyjson_obj_iter_next(&iter))) {
         val = yyjson_obj_iter_get_val(key);
         if (yyjson_equals_str(key, "itag"))
-            info->formats[i]->itag = yyjson_get_int(val);
+            format->itag = yyjson_get_int(val);
         else if (yyjson_equals_str(key, "url"))
-            info->formats[i]->url_untouched = yyjson_get_str(val);
+            format->url_untouched = yyjson_get_str(val);
         else if (yyjson_equals_str(key, "mimeType"))
-            info->formats[i]->mime_type = yyjson_get_str(val);
+            format->mime_type = yyjson_get_str(val);
         else if (yyjson_equals_str(key, "signatureCipher") || yyjson_equals_str(key, "cipher"))
-            info->formats[i]->cipher = yyjson_get_str(val);
+            format->cipher = yyjson_get_str(val);
         else if (yyjson_equals_str(key, "bitrate"))
-            info->formats[i]->bitrate = yyjson_get_int(val);
+            format->bitrate = yyjson_get_int(val);
         else if (yyjson_equals_str(key, "width"))
         {
-            info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_VID;
-            info->formats[i]->width = yyjson_get_int(val);
+            format->flags |= YTDL_INFO_FORMAT_HAS_VID;
+            format->width = yyjson_get_int(val);
         }
         else if (yyjson_equals_str(key, "height"))
-            info->formats[i]->height = yyjson_get_int(val);
+            format->height = yyjson_get_int(val);
         else if (yyjson_equals_str(key, "contentLength"))
-            info->formats[i]->content_length = atoll(yyjson_get_str(val));
+            format->content_length = atoll(yyjson_get_str(val));
         else if (yyjson_equals_str(key, "quality"))
-            info->formats[i]->quality = yyjson_get_str(val);
+            format->quality = yyjson_get_str(val);
         else if (yyjson_equals_str(key, "qualityLabel"))
-            info->formats[i]->quality_label = yyjson_get_str(val);
+            format->quality_label = yyjson_get_str(val);
         else if (yyjson_equals_str(key, "fps"))
-            info->formats[i]->fps = yyjson_get_int(val);
+            format->fps = yyjson_get_int(val);
         else if (yyjson_equals_str(key, "averageBitrate"))
-            info->formats[i]->average_bitrate = yyjson_get_int(val);
+            format->average_bitrate = yyjson_get_int(val);
         else if (yyjson_equals_str(key, "audioChannels"))
         {
-            info->formats[i]->flags |= YTDL_INFO_FORMAT_HAS_AUD;
-            info->formats[i]->audio_channels = yyjson_get_int(val);
+            format->flags |= YTDL_INFO_FORMAT_HAS_AUD;
+            format->audio_channels = yyjson_get_int(val);
         }
         else if (yyjson_equals_str(key, "approxDurationMs"))
-            info->formats[i]->approx_duration_ms = atoll(yyjson_get_str(val));
+            format->approx_duration_ms = atoll(yyjson_get_str(val));
         else if (yyjson_equals_str(key, "audioQuality"))
         {
-            info->formats[i]->audio_quality = 
+            format->audio_quality = 
                 yyjson_get_str(val)[yyjson_get_len(val) - 1] == 'W' ? 
                     YTLD_INFO_AUDIO_QUALITY_LOW : 
                     YTLD_INFO_AUDIO_QUALITY_MEDIUM;
         }
     }
 
-    info->formats[i]->flags |= YTDL_INFO_FORMAT_POPULATED;
+    format->flags |= YTDL_INFO_FORMAT_POPULATED;
+}
+
+static inline 
+void ytdl__info_format_populate (ytdl_info_ctx_t *info, size_t i) 
+{
+    return ytdl__info_format_populate2(info->formats[i]);
 }
 
 static void ytdl__info_format_populate_all(ytdl_info_ctx_t *info)
@@ -424,15 +430,15 @@ ptrdiff_t urldecode(char* dst, const char* src)
     return (dst - org_dst) - 1;
 }
 
-char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx) 
+char *ytdl_info_get_format_url2 (ytdl_info_ctx_t *info, ytdl_info_format_t *format) 
 {
-    if (info->formats[idx]->url)
-        return info->formats[idx]->url;
+    if (format->url)
+        return format->url;
 
-    ytdl__info_format_populate(info, idx);
+    ytdl__info_format_populate2(format);
 
-    if (info->formats[idx]->cipher) {
-        char *cipher = strdup(info->formats[idx]->cipher);
+    if (format->cipher) {
+        char *cipher = strdup(format->cipher);
 
         char *cipher_end = cipher + strlen(cipher);
 
@@ -536,24 +542,22 @@ char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx)
 
         sprintf(url, "%s?%s=%s", url, sp ? sp : "signature", sig);
 
-        info->formats[idx]->url = url;
+        format->url = url;
 
         if (sig)
             free(sig);
         if (sp)
             free(sp);
     } 
-    else if (info->formats[idx]->url_untouched) 
+    else if (format->url_untouched) 
     {
-        info->formats[idx]->url = calloc(strlen(info->formats[idx]->url_untouched) + 1, 1);
+        format->url = calloc(strlen(format->url_untouched) + 1, 1);
 
-        urldecode(info->formats[idx]->url, info->formats[idx]->url_untouched);
+        urldecode(format->url, format->url_untouched);
     }
     else return NULL;
 
     // TODO: check live dash and hls support
 
-
-
-    return info->formats[idx]->url;
-} 
+    return format->url;
+}

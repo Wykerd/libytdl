@@ -36,16 +36,16 @@ const char yt_valid_id_map[256] = {
 void ytdl_net_request_player_js (ytdl_buf_t *buf, const char* player_path) 
 {
     buf->len = 0;
-    if (!ytdl_buf_alloc(buf, 356))
+    if (!ytdl_buf_alloc(buf, YTDL_DL_PLAYER_JS_REQUEST_SIZE))
         return;
 
     snprintf(
         buf->base, 
-        356,
+        YTDL_DL_PLAYER_JS_REQUEST_SIZE,
         "GET %s HTTP/1.1\r\n"
         "Host: www.youtube.com\r\n"
         "Connection: keep-alive\r\n"
-        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36\r\n"
+        "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
         "Accept: */*\r\n\r\n",
         player_path
     );
@@ -56,18 +56,88 @@ void ytdl_net_request_player_js (ytdl_buf_t *buf, const char* player_path)
 void ytdl_net_request_watch_html (ytdl_buf_t *buf, const char id[YTDL_ID_SIZE]) 
 {
     buf->len = 0;
-    if (!ytdl_buf_alloc(buf, 256))
+    if (!ytdl_buf_alloc(buf, YTDL_DL_WATCH_HTML_REQUEST_SIZE))
         return;
 
     snprintf(
         buf->base, 
-        256,
+        YTDL_DL_WATCH_HTML_REQUEST_SIZE,
         "GET /watch?v=%s HTTP/1.1\r\n"
         "Host: www.youtube.com\r\n"
         "Connection: keep-alive\r\n"
-        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36\r\n"
+        "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
         "Accept: */*\r\n\r\n",
         id
+    );
+
+    buf->len = strlen(buf->base);
+}
+
+void ytdl_net_request_media_chunk (ytdl_buf_t *buf, const char* path_buf, size_t path_len, 
+                                   const char* query_buf, size_t query_len, 
+                                   const char* host_buf, size_t host_len, 
+                                   size_t start_idx, size_t end_idx)
+{
+    size_t buf_size = 200 + sizeof(YTDL_DL_USER_AGENT) + path_len + host_len + query_len; // overallocate just in case
+    buf->len = 0;
+    if (!ytdl_buf_alloc(buf, buf_size))
+        return;
+
+    if (end_idx)
+        snprintf(
+            buf->base, 
+            buf_size,
+            "GET %.*s?%.*s HTTP/1.1\r\n"
+            "Host: %.*s\r\n"
+            "Connection: keep-alive\r\n"
+            "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
+            "Range: bytes=%zu-%zu\r\n"
+            "Accept: */*\r\n\r\n",
+            path_len, path_buf,
+            query_len, query_buf,
+            host_len, host_buf,
+            start_idx, end_idx
+        );
+    else
+        snprintf(
+            buf->base, 
+            buf_size,
+            "GET %.*s?%.*s HTTP/1.1\r\n"
+            "Host: %.*s\r\n"
+            "Connection: keep-alive\r\n"
+            "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
+            "Range: bytes=%zu-\r\n"
+            "Accept: */*\r\n\r\n",
+            path_len, path_buf,
+            query_len, query_buf,
+            host_len, host_buf,
+            start_idx
+        );
+
+    buf->len = strlen(buf->base);
+}
+
+void ytdl_net_request_media (ytdl_buf_t *buf, const char* path_buf, size_t path_len, 
+                             const char* query_buf, size_t query_len, 
+                             const char* host_buf, size_t host_len)
+{
+    size_t buf_size = 90 + sizeof(YTDL_DL_USER_AGENT) + path_len + host_len + query_len; 
+
+    buf->len = 0;
+    if (!ytdl_buf_alloc(buf, buf_size))
+        return;
+
+    snprintf(
+        buf->base, 
+        buf_size,
+        "GET %.*s?%.*s HTTP/1.1\r\n"
+        "Host: %.*s\r\n"
+        "Connection: keep-alive\r\n"
+        "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
+        "Accept: */*\r\n\r\n",
+        path_len, path_buf,
+        query_len, query_buf,
+        host_len, host_buf
     );
 
     buf->len = strlen(buf->base);

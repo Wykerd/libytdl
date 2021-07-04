@@ -8,6 +8,7 @@
 #include <ytdl/buffer.h>
 #include <ytdl/http/http.h>
 #include <ytdl/hashmap.h>
+#include <ytdl/url_parser.h>
 
 #define YTDL_DL_IS_CONNECTED    (1)
 #define YTDL_DL_IS_SHUTDOWN     (1 << 1)
@@ -57,5 +58,35 @@ void ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx);
 
 void ytdl_dl_player_cache_save_file(ytdl_dl_ctx_t *ctx, FILE *fd);
 int ytdl_dl_player_cache_load_file(ytdl_dl_ctx_t *ctx, FILE *fd);
+
+typedef struct ytdl_dl_media_ctx_s ytdl_dl_media_ctx_t;
+
+typedef void (*ytdl_dl_media_data_cb)(ytdl_dl_media_ctx_t *ctx, const char *buf, size_t len);
+typedef void (*ytdl_dl_media_cb)(ytdl_dl_media_ctx_t *ctx);
+typedef void (*ytdl_dl_media_status_cb)(ytdl_dl_media_ctx_t *ctx, ytdl_net_status_t *status);
+
+struct ytdl_dl_media_ctx_s {
+    ytdl_http_client_t http;
+    struct http_parser_url url;
+    char *format_url;
+    long long format_content_length;
+
+    ytdl_dl_media_data_cb on_data;
+    ytdl_dl_media_cb on_complete;
+    // Relays http status
+    ytdl_dl_media_status_cb on_status;
+    ytdl_dl_media_cb on_close;
+
+    int is_chunked;
+    size_t last_chunk_end;
+
+    // opaque data
+    void *data;
+};
+
+int ytdl_dl_media_ctx_init (uv_loop_t *loop, ytdl_dl_media_ctx_t *ctx, 
+                            ytdl_info_format_t *format, ytdl_info_ctx_t *info);
+int ytdl_dl_media_ctx_connect (ytdl_dl_media_ctx_t *ctx);
+void ytdl_dl_media_shutdown (ytdl_dl_media_ctx_t *ctx, ytdl_dl_media_cb on_close);
 
 #endif

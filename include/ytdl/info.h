@@ -147,11 +147,21 @@ void ytdl_info_ctx_free (ytdl_info_ctx_t *info);
  * Deciphers the format url and returns it
  * 
  * @param info Info context
+ * @param format The format to get
+ * @returns The deciphered stream url. NULL if error.
+ * The value is freed along with the info. 
+ */ 
+char *ytdl_info_get_format_url2 (ytdl_info_ctx_t *info, ytdl_info_format_t *format);
+
+/**
+ * Deciphers the format url and returns it
+ * 
+ * @param info Info context
  * @param idx The index of the format to get
  * @returns The deciphered stream url. NULL if error.
  * The value is freed along with the info. 
  */ 
-char *ytdl_info_get_format_url (ytdl_info_ctx_t *info, size_t idx);
+#define ytdl_info_get_format_url(info, idx) ytdl_info_get_format_url2((info), (info)->formats[idx])
 
 /**
  * @returns The index of the best audio format
