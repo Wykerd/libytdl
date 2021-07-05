@@ -145,6 +145,22 @@ free_ssl:
     }
 }
 
+void ytdl__tls_poll_close (uv_handle_t *handle) 
+{
+    ytdl_http_client_t *client = handle->data;
+    int err = 0;
+    uv_idle_t *sht = malloc(sizeof(uv_idle_t));
+
+    uv_idle_init(client->loop, sht);
+
+    sht->data = client;
+
+    err = uv_idle_start(sht, ytdl__http_client_tls_shutdown_cb);
+    if (err) {
+        client->tls_close_cb((uv_handle_t *)&client->tcp);
+    }
+}
+
 void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb) {
     for (size_t i = 0; i < client->tls_write_queue.len; i++) {
         free(client->tls_write_queue.bufs[i]);
@@ -161,17 +177,9 @@ void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb
 
     int err = 0;
     if (client->ssl != NULL) {
-        uv_poll_stop(&client->tls_poll);
-
-        uv_idle_t *sht = malloc(sizeof(uv_idle_t));
-
-        uv_idle_init(client->loop, sht);
-
-        sht->data = client;
-
         client->tls_close_cb = close_cb;
-
-        err = uv_idle_start(sht, ytdl__http_client_tls_shutdown_cb);
+        uv_poll_stop(&client->tls_poll);
+        uv_close((uv_handle_t*)&client->tls_poll, ytdl__tls_poll_close);
     } else {
         err = uv_tcp_close_reset(&client->tcp, close_cb);
     }
