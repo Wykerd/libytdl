@@ -1,17 +1,24 @@
 # libytdl Documentation
 
-# NOTE: libytdl and its documentation is still very much incomplete. Please be patient or help by contributing!
+**NOTE: libytdl and its documentation is still very much incomplete. Please be patient or help by contributing!**
 
 ## Why libytdl?
 Other tools like `youtube-dl` don't provide developers with a simple embedding API and you need to resort to calling them from the commandline.
 
-`libytdl` and its core `libytdlc` aims to provide a simple embeddable method for downloading and consuming youtube videos in your own applications. 
+libytdl aims to provide a simple embeddable method for downloading and consuming youtube videos in your own applications. 
 
 ## What's includes?
-- `libytdlc` which is the core library without any http implementations
-- `libytdl` which uses its own http client implementation
+libytdl is split into 3 seperate libraries under the same prefix
+- `libytdlcore` - the core library
+    - Video info extraction
+    - Format url deciphering
+    - HTTP request generation
+- `libytdlhttp` - the http client library
+    - Video downloader
+- `libytdlav` - video and audio file handling library
+    - matroska (mkv) remuxer to merge audio and video streams
 
-You can pick to use `libytdlc` if your project uses and existing http implemenation.
+Additionally a cli is being implemented to use the library called `ytdlcli`.
 
 ## Features
 - Small and embeddable
@@ -26,16 +33,13 @@ libytdl is tested on both GNU/Linux and macOS and should work without any issues
 
 # Dependencies
 
-## Core dependencies (libytdlc)
-
-### External
-- [uriparser](https://uriparser.github.io/)
+## Core dependencies (libytdlcore)
 
 ### Included (Packaged)
-- libregexp & libunicode from [Fabrice Bellard's QuickJS engine](https://bellard.org/quickjs/)
+- [QuickJS](https://bellard.org/quickjs/)
 - [yyjson](https://github.com/ibireme/yyjson)
 
-## Additional dependencies (libytdl)
+## Http dependencies (libytdlhttp)
 
 ### External
 - [OpenSSL](https://www.openssl.org/)
@@ -43,3 +47,8 @@ libytdl is tested on both GNU/Linux and macOS and should work without any issues
 
 ### Included (submodules)
 - [llhttp](https://github.com/nodejs/llhttp)
+
+## AV dependencies (libytdlav)
+
+### External
+- [FFmpeg](http://ffmpeg.org/) (libavformat & libavcodec)

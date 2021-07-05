@@ -7,10 +7,12 @@ Guides for building on various platforms are given below:
 \page buildlinux Building on GNU/Linux
 # Prerequisites
 This library uses `cmake` and a modern C compiler like `gcc` or `clang`. You can install it with your distribution's package manager.
-- ArchLinux: `sudo pacman -S cmake gcc`
-- Debian: `sudo apt install cmake gcc`
+- Archlinux: `sudo pacman -S cmake gcc`
 
-Additionally `libytdl` depends on `llhttp` which requires nodejs to build. [See download instructions on their website.](https://nodejs.org/en/download/package-manager/)
+Additionally `libytdlhttp` depends on `llhttp` which requires nodejs to build. [See download instructions on their website.](https://nodejs.org/en/download/package-manager/)
+
+Lastly install dependencies: 
+- Archlinux: `sudo pacman -S openssl libuv ffmpeg`
 
 # Building
 First recursively clone the repository from Github:
@@ -19,7 +21,7 @@ git clone --recursive https://github.com/Wykerd/libytdl.git
 cd libytdl
 ```
 
-`libytdl` depends on `llhttp` for its http parser. This dependency must be built seperately as follows:
+`libytdlhttp` depends on `llhttp` for its http parser. This dependency must be built seperately as follows:
 ```
 cd deps/llhttp
 npm i
@@ -34,7 +36,7 @@ cd build
 cmake ..
 make
 ```
-Once built you can link other programs to either `libytdl.so` or `libytdlc.so`
+Once built you can link other programs to `libytdlhttp.so`, `libytdlcore.so` or `libytdlav.so`
 
 # Building the documentation (optional)
 You can make a local copy of the documentation by running:
@@ -55,9 +57,14 @@ Next install the external dependencies
 brew install uriparser
 ```
 
-Additionally `libytdl` depends on `llhttp` which requires nodejs to build. Download it with brew as follows:
+Additionally `libytdlhttp` depends on `llhttp` which requires nodejs to build. Download it with brew as follows:
 ```
 brew install nodejs
+```
+
+Install the dependencies:
+```
+brew install openssl libuv ffmpeg
 ```
 
 # Building
@@ -67,7 +74,7 @@ git clone --recursive https://github.com/Wykerd/libytdl.git
 cd libytdl
 ```
 
-`libytdl` depends on `llhttp` for its http parser. This dependency must be built seperately as follows:
+`libytdlhttp` depends on `llhttp` for its http parser. This dependency must be built seperately as follows:
 ```
 cd deps/llhttp
 npm i
@@ -84,7 +91,7 @@ cd build
 cmake ..
 make
 ```
-Once built you can link other programs to either `libytdl.dylib` or `libytdlc.dylib`
+Once built you can link other programs to `libytdlhttp.dylib`, `libytdlcore.dylib` or `libytdlav.dylib`
 
 # Building the documentation (optional)
 You can make a local copy of the documentation by running:
