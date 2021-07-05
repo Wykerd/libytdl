@@ -18,9 +18,8 @@ static int ytdl__mux_write_frame (AVFormatContext *fmt_ctx, AVFormatContext *o_f
     }
     packet->stream_index = idx;
     out_stream = o_fmt_ctx->streams[packet->stream_index];
-    *next_pts = packet->pts;
-    
     av_packet_rescale_ts(packet, in_stream->time_base, out_stream->time_base);
+    *next_pts = packet->pts;
     
     ret = av_interleaved_write_frame(o_fmt_ctx, packet);
     if (ret < 0) {
@@ -168,13 +167,14 @@ int ytdl_mux_files (const char *audio_path, const char *video_path, const char *
     }
 
     while (encode_audio || encode_video) {
-        if (encode_video && (!encode_audio || av_compare_ts(next_v_pts, v_fmt_ctx->streams[video_st]->time_base, next_a_pts, a_fmt_ctx->streams[audio_st]->time_base)))
+        if (encode_audio && (!encode_video || (av_compare_ts(next_a_pts, o_fmt_ctx->streams[0]->time_base,
+                                                             next_v_pts, o_fmt_ctx->streams[1]->time_base) <= 0)))
         {
-            encode_video = ytdl__mux_write_frame(v_fmt_ctx, o_fmt_ctx, &packet, &next_v_pts, video_st, loglevel, 1);
+            encode_audio = ytdl__mux_write_frame(a_fmt_ctx, o_fmt_ctx, &packet, &next_a_pts, audio_st, loglevel, 0);
         } 
         else 
         {
-            encode_audio = ytdl__mux_write_frame(a_fmt_ctx, o_fmt_ctx, &packet, &next_a_pts, audio_st, loglevel, 0);
+            encode_video = ytdl__mux_write_frame(v_fmt_ctx, o_fmt_ctx, &packet, &next_v_pts, video_st, loglevel, 1);
         }
     }
 
