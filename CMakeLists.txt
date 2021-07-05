@@ -22,18 +22,6 @@ if(YTDL_BUILD_CLI AND NOT YTDL_BUILD_MUX)
     message(FATAL_ERROR "Cannot build cli without building muxer")
 endif()
 
-# Find dependencies
-find_package(Threads REQUIRED)
-find_package(UV REQUIRED)
-if(APPLE)
-    if(NOT OPENSSL_ROOT_DIR)
-        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
-    endif()
-    find_package(OpenSSL REQUIRED)
-else()
-    find_package(OpenSSL REQUIRED)
-endif()
-
 # Targets
 add_library(regexp STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cutils.c
@@ -52,7 +40,10 @@ add_library(ytdlcore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/info.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/net.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/url_parser.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/quickjs.c
 )
+
+target_compile_definitions(ytdlcore PRIVATE CONFIG_VERSION="2021-03-27")
 
 target_include_directories(ytdlcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(ytdlcore PRIVATE
@@ -69,23 +60,34 @@ endif()
 
 if (YTDL_BUILD_MUX)
     find_package(FFMPEG REQUIRED COMPONENTS avformat avcodec)
-    add_library(ytdlmux
+    add_library(ytdlav
         ${CMAKE_CURRENT_SOURCE_DIR}/src/mux.c
     )
-    target_include_directories(ytdlmux PUBLIC
+    target_include_directories(ytdlav PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include 
     )
-    target_include_directories(ytdlmux PRIVATE 
+    target_include_directories(ytdlav PRIVATE 
         ${FFMPEG_avcodec_INCLUDE_DIRS}
         ${FFMPEG_avformat_INCLUDE_DIRS}
     )
-    target_link_libraries(ytdlmux PRIVATE 
+    target_link_libraries(ytdlav PRIVATE 
         FFMPEG::avformat
         FFMPEG::avcodec
     )
 endif() 
 
 if (YTDL_BUILD_HTTP)
+    find_package(Threads REQUIRED)
+    find_package(UV REQUIRED)
+    if(APPLE)
+        if(NOT OPENSSL_ROOT_DIR)
+            set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+        endif()
+        find_package(OpenSSL REQUIRED)
+    else()
+        find_package(OpenSSL REQUIRED)
+    endif()
+
     add_library(ytdlhttp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/http.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/net.c
@@ -117,6 +119,6 @@ if (YTDL_BUILD_HTTP)
         add_executable(ytdlcli 
             ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.c
         )
-        target_link_libraries(ytdlcli PRIVATE ytdlhttp ytdlcore ytdlmux)
+        target_link_libraries(ytdlcli PRIVATE ytdlhttp ytdlcore ytdlav)
     endif()
 endif()

@@ -294,4 +294,6 @@ void rqsort(void *base, size_t nmemb, size_t size,
             int (*cmp)(const void *, const void *, void *),
             void *arg);
 
+char * strnstr(const char *s, const char *find, size_t slen);
+
 #endif  /* CUTILS_H */

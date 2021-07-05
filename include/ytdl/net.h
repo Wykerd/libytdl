@@ -6,14 +6,19 @@
 #define YTDL_ID_LEN 11
 
 #define YTDL_DL_CHUNK_SIZE (1024 * 1024 * 10)
-#define YTDL_DL_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"
+#define YTDL_DL_USER_AGENT ""//"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"
 
 #define YTDL_DL_MAX_PLAYER_PATH 150
 #define YTDL_DL_PLAYER_JS_REQUEST_SIZE 94 + sizeof(YTDL_DL_USER_AGENT) + YTDL_DL_MAX_PLAYER_PATH
 
-#define YTDL_DL_WATCH_HTML_REQUEST_SIZE 103 + sizeof(YTDL_DL_USER_AGENT) + YTDL_ID_SIZE
+#define YTDL_DL_WATCH_HTML_REQUEST_SIZE 135 + sizeof(YTDL_DL_USER_AGENT) + YTDL_ID_SIZE
 
 #include <ytdl/buffer.h>
+
+/**
+ * Sanitize filename inplace
+ */
+void ytdl_sanitize_filename_inplace (char *filepath);
 
 /**
  * Not very accurate but fast way to find youtube video url
@@ -38,6 +43,11 @@ void ytdl_net_get_watch_url (char url[YTDL_WATCH_URL_SIZE], char id[YTDL_ID_SIZE
  * @returns The HTTP/1.1 GET request for the `watch` page's html
  */
 void ytdl_net_request_watch_html (ytdl_buf_t *buf, const char id[12]);
+
+/**
+ * @returns The HTTP/1.1 GET request for the innertube json
+ */
+void ytdl_net_request_innertube_player (ytdl_buf_t *buf, const char id[YTDL_ID_SIZE], const char *cver);
 
 /**
  * @returns The HTTP/1.1 GET request for the youtube player javascript file

@@ -14,6 +14,25 @@ const char *yt_hosts[6] = {
     "gaming.youtube.com"
 };
 
+const char yt_invalid_path_char[256] = {
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1,
+    0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,1,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+};
+
 const char yt_valid_id_map[256] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -32,6 +51,14 @@ const char yt_valid_id_map[256] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
+
+void ytdl_sanitize_filename_inplace (char *filepath)
+{
+    size_t len = strlen(filepath);
+    for (size_t i = 0; i < len; i++)
+        if (yt_invalid_path_char[filepath[i]]) 
+            filepath[i] = '_';
+}
 
 void ytdl_net_request_player_js (ytdl_buf_t *buf, const char* player_path) 
 {
@@ -62,12 +89,39 @@ void ytdl_net_request_watch_html (ytdl_buf_t *buf, const char id[YTDL_ID_SIZE])
     snprintf(
         buf->base, 
         YTDL_DL_WATCH_HTML_REQUEST_SIZE,
-        "GET /watch?v=%s HTTP/1.1\r\n"
+        "GET /watch?v=%s&bpctr=9999999999&has_verified=1 HTTP/1.1\r\n"
         "Host: www.youtube.com\r\n"
         "Connection: keep-alive\r\n"
         "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
         "Accept: */*\r\n\r\n",
         id
+    );
+
+    buf->len = strlen(buf->base);
+}
+
+// TODO: innertube WEB_EMBEDDED_PLAYER for unlocking age restricted content
+
+void ytdl_net_request_innertube_player (ytdl_buf_t *buf, const char id[YTDL_ID_SIZE], const char *cver) 
+{
+    int content_len = 75 + YTDL_ID_LEN + strlen(cver);
+    size_t buf_size = 300 + content_len;
+    buf->len = 0;
+    if (!ytdl_buf_alloc(buf, buf_size))
+        return;
+
+    snprintf(
+        buf->base, 
+        buf_size,
+        "GET /youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8 HTTP/1.1\r\n"
+        "Host: www.youtube.com\r\n"
+        "Connection: keep-alive\r\n"
+        "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
+        "Accept: */*\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: %d\r\n\r\n"
+        "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"%s\"}},\"videoId\":\"%s\"}",
+        content_len, cver, id
     );
 
     buf->len = strlen(buf->base);

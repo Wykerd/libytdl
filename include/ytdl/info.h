@@ -59,11 +59,11 @@ typedef struct ytdl_info_ctx_s {
     char *ps_message;
 
     // // //
-    // JSON Internals
+    // JS Internals
     // // //
+    
     yyjson_doc *init_pr_doc;
     yyjson_doc *init_d_doc;
-    yyjson_doc *watch_doc;
 
     yyjson_val *player_response;
     yyjson_val *response;

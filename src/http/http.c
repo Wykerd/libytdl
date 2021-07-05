@@ -4,6 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+static 
+void close_free_cb (uv_handle_t* handle)
+{
+    free(handle);
+};
+
 void ytdl_http_client_parse_read (ytdl_http_client_t* client, const uv_buf_t *buf) {
     llhttp_errno_t err = llhttp_execute(&client->parser, buf->base, buf->len);
     if (err != HPE_OK) {
@@ -37,7 +43,7 @@ static void ytdl__http_client_write_cb (uv_write_t* req, int status) {
 
         cb(client, &error);
 
-        free(req);
+        uv_close((uv_handle_t *)req, close_free_cb);
 
         return;
     }
@@ -49,7 +55,7 @@ static void ytdl__http_client_write_cb (uv_write_t* req, int status) {
 
     cb(client, &error);
 
-    free(req);
+    uv_close((uv_handle_t *)req, close_free_cb);
 };
 
 void ytdl_http_client_write (ytdl_http_client_t *client, uv_buf_t *buf, ytdl_http_client_status_cb write_cb) {
@@ -125,7 +131,7 @@ static void ytdl__http_client_tls_shutdown_cb (uv_idle_t* handle) {
     } else {
 free_ssl:
         uv_idle_stop(handle);
-        free(handle);
+        uv_close((uv_handle_t*)handle, close_free_cb);
 
         SSL_free(client->ssl);
         if (client->tls_ctx != NULL) {
@@ -395,7 +401,7 @@ static void ytdl__http_client_tls_handshake_cb (uv_idle_t* handle) {
             return; // Handshake still in progress
         } else if (err == SSL_ERROR_ZERO_RETURN) {
             uv_idle_stop(handle);
-            free(handle);
+            uv_close((uv_handle_t*)handle, close_free_cb);
             
             ytdl_net_status_t stat = {
                 .type = YTDL_NET_E_TLS_SESSION_CLOSED,
@@ -407,7 +413,7 @@ static void ytdl__http_client_tls_handshake_cb (uv_idle_t* handle) {
             return;
         } else {
             uv_idle_stop(handle);
-            free(handle);
+            uv_close((uv_handle_t*)handle, close_free_cb);
 
             ytdl_net_status_t stat = {
                 .type = YTDL_NET_E_TLS_SESSION_HANDSHAKE_FAILED,
@@ -421,7 +427,7 @@ static void ytdl__http_client_tls_handshake_cb (uv_idle_t* handle) {
     } else {
         // Handshake is complete
         uv_idle_stop(handle);
-        free(handle);
+        uv_close((uv_handle_t*)handle, close_free_cb);
         // Start polling for I/O
         
         // Get socket file descriptor

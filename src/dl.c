@@ -107,6 +107,8 @@ static int ytdl__player_js_complete (llhttp_t* parser)
 
     player->player_path = strdup(vid->info.player_url);
 
+    ytdl_sig_actions_init(&player->sig_actions);
+
     if (ytdl_sig_actions_extract(&player->sig_actions, (uint8_t *)ctx->player_js.base, 
                                  ctx->player_js.len))
     {
@@ -235,6 +237,12 @@ int ytdl_dl_ctx_connect (ytdl_dl_ctx_t *ctx)
                                     ytdl__status_cb, ytdl__connected_cb);
 }
 
+static 
+void close_free_cb (uv_handle_t* handle)
+{
+    free(handle);
+};
+
 static void ytdl__dl_shutdown (uv_idle_t* handle) 
 {
     ytdl_dl_ctx_t *ctx = handle->data;
@@ -246,6 +254,7 @@ static void ytdl__dl_shutdown (uv_idle_t* handle)
 
     ytdl_dl_player_t *player;
     hashmap_foreach_data(player, &ctx->player_map) {
+        ytdl_sig_actions_free(&player->sig_actions);
         free(player->player_path);
         free(player);
     }
@@ -261,7 +270,7 @@ static void ytdl__dl_shutdown (uv_idle_t* handle)
     free(ctx->queue.videos);
 
     uv_idle_stop(handle);
-    free(handle);
+    uv_close((uv_handle_t*)handle, close_free_cb);
 }
 
 void ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx)
@@ -274,17 +283,17 @@ void ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx)
 }
 
 void ytdl_dl_player_cache_save_file(ytdl_dl_ctx_t *ctx, FILE *fd)
-{
+{   /*
     ytdl_dl_player_t *player;
     hashmap_foreach_data(player, &ctx->player_map) {
         fputs(player->player_path, fd);
         fputc(0, fd);
         fwrite(&player->sig_actions, sizeof(ytdl_sig_actions_t), 1, fd);
-    }
+    }*/
 }
 
 int ytdl_dl_player_cache_load_file(ytdl_dl_ctx_t *ctx, FILE *fd)
-{
+{   /*
     char player_path[100] = {0};
     int pos = 0,
         off = 0;
@@ -311,7 +320,7 @@ int ytdl_dl_player_cache_load_file(ytdl_dl_ctx_t *ctx, FILE *fd)
             return 0;
         player_path[0] = c;
         pos = 1;
-    }
+    }*/
 }
 
 static int ytdl__media_echo_cb (llhttp_t* parser, const char *at, size_t length)
@@ -458,12 +467,12 @@ static void ytdl__dl_media_shutdown (uv_idle_t* handle)
 {
     ytdl_dl_media_ctx_t *ctx = handle->data;
 
+    uv_idle_stop(handle);
+    uv_close((uv_handle_t*)handle, close_free_cb);
+
     ytdl_http_client_shutdown(&ctx->http, ytdl__media_close_cb);
 
     free(ctx->format_url);
-
-    uv_idle_stop(handle);
-    free(handle);
 }
 
 void ytdl_dl_media_shutdown (ytdl_dl_media_ctx_t *ctx, ytdl_dl_media_cb on_close)

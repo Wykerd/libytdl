@@ -1,28 +1,9 @@
 #include <ytdl/info.h>
+#include <ytdl/cutils.h>
 
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
-
-char * strnstr(const char *s, const char *find, size_t slen)
-{
-    char c, sc;
-    size_t len;
-
-    if ((c = *find++) != '\0') {
-        len = strlen(find);
-        do {
-            do {
-                if (slen-- < 1 || (sc = *s++) == '\0')
-                    return (NULL);
-            } while (sc != c);
-            if (len > slen)
-                return (NULL);
-        } while (strncmp(s, find, len) != 0);
-        s--;
-    }
-    return ((char *)s);
-}
 
 static 
 char *ytdl__strrev(char *str)
@@ -51,9 +32,6 @@ void ytdl_info_ctx_free (ytdl_info_ctx_t *info)
     
     if (info->init_d_doc)
         yyjson_doc_free(info->init_d_doc);
-
-    if (info->watch_doc)
-        yyjson_doc_free(info->watch_doc);
 
     if (info->formats) {
         for (size_t i = 0; i < info->formats_size; i++) 
@@ -89,12 +67,37 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
         info->player_url[i] = pos[i];
     };
 
-    char *player_response_s = strnstr((const char *)buf, " ytInitialPlayerResponse = ", buf_len) + 27;
+    char *response_s = strnstr((const char*)buf, " ytInitialData = ", buf_len);
+    if (!response_s)
+        return 1;
+    response_s += 17;
+    size_t response_idx = (const uint8_t *)response_s - buf;
+    char *response_e = strnstr(response_s, ";</script>", 
+                                      buf_len - response_idx);
+    if (!response_e)
+        return 2;
+
+    info->init_d_doc = yyjson_read(response_s, 
+                                   response_e - response_s, 0);
+
+    info->response = yyjson_doc_get_root(info->init_d_doc);
+
+    if (!info->init_d_doc)
+        return 3;
+
+    char *player_response_s = strnstr((const char *)buf, " ytInitialPlayerResponse = ", buf_len);
+    if (!player_response_s)
+        return 4;
+    player_response_s += 27;
     size_t player_response_idx = (const uint8_t *)player_response_s - buf;
     char *player_response_e_1 = strnstr(player_response_s, ";</script>", 
                                         buf_len - player_response_idx);
+    if (!player_response_e_1)
+        return 5;
     char *player_response_e_2 = strnstr(player_response_s, ";var ", 
                                         buf_len - player_response_idx);
+    if (!player_response_e_2)
+        return 6;
 
     char *player_response_e = player_response_e_1 < player_response_e_2 ? player_response_e_1 : player_response_e_2;
 
@@ -105,19 +108,6 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
 
     if (!info->init_pr_doc)
         return -1;
-
-    char *response_s = strnstr((const char*)buf, " ytInitialData = ", buf_len) + 18;
-    size_t response_idx = (const uint8_t *)response_s - buf;
-    char *response_e = strnstr(response_s, ";</script>", 
-                                      buf_len - response_idx);
-
-    info->init_d_doc = yyjson_read(player_response_s, 
-                                   player_response_e - player_response_s, 0);
-
-    info->response = yyjson_doc_get_root(info->init_d_doc);
-
-    if (!info->init_d_doc)
-        return 1;
 
     return 0;
 }
@@ -558,6 +548,23 @@ char *ytdl_info_get_format_url2 (ytdl_info_ctx_t *info, ytdl_info_format_t *form
     else return NULL;
 
     // TODO: check live dash and hls support
+
+    JSValue string = JS_NewString(info->sig_actions->ctx, format->url);
+
+    JSValue ret = JS_Call(info->sig_actions->ctx, info->sig_actions->func,
+                          JS_UNDEFINED, 1, &string);
+
+    if (JS_IsException(ret))
+        return format->url;
+
+    const char *ret_str = JS_ToCString(info->sig_actions->ctx, ret);
+
+    free(format->url);
+    format->url = strdup(ret_str);
+
+    JS_FreeValue(info->sig_actions->ctx, ret);
+    JS_FreeCString(info->sig_actions->ctx, ret_str);
+    JS_FreeValue(info->sig_actions->ctx, string);
 
     return format->url;
 }

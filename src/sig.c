@@ -6,6 +6,46 @@
 #include <ytdl/sig-regex.h>
 #include <ytdl/buffer.h>
 #include <ytdl/sig.h>
+#include <ytdl/cutils.h>
+#include <ytdl/quickjs.h>
+
+static void js_dump_obj(JSContext *ctx, FILE *f, JSValueConst val)
+{
+    const char *str;
+    
+    str = JS_ToCString(ctx, val);
+    if (str) {
+        fprintf(f, "%s\n", str);
+        JS_FreeCString(ctx, str);
+    } else {
+        fprintf(f, "[exception]\n");
+    }
+}
+
+static void js_std_dump_error1(JSContext *ctx, JSValueConst exception_val)
+{
+    JSValue val;
+    BOOL is_error;
+    
+    is_error = JS_IsError(ctx, exception_val);
+    js_dump_obj(ctx, stderr, exception_val);
+    if (is_error) {
+        val = JS_GetPropertyStr(ctx, exception_val, "stack");
+        if (!JS_IsUndefined(val)) {
+            js_dump_obj(ctx, stderr, val);
+        }
+        JS_FreeValue(ctx, val);
+    }
+}
+
+static void js_std_dump_error(JSContext *ctx)
+{
+    JSValue exception_val;
+    
+    exception_val = JS_GetException(ctx);
+    js_std_dump_error1(ctx, exception_val);
+    JS_FreeValue(ctx, exception_val);
+}
 
 static 
 int str2int(const char* str, int len)
@@ -17,17 +57,6 @@ int str2int(const char* str, int len)
         ret = ret * 10 + (str[i] - '0');
     }
     return ret;
-}
-
-int lre_check_stack_overflow(void *opaque, size_t alloca_size)
-{
-    // TODO: check for overflow?
-    return 0;
-}
-
-void *lre_realloc(void *opaque, void *ptr, size_t size) 
-{
-    return realloc(ptr, size);
 }
 
 /* Returns 1 if match 0 if no match and -1 if error 
@@ -213,6 +242,59 @@ int ytdl_sig_actions_extract (ytdl_sig_actions_t *actions,
     ytdl_buf_free(&func_body);
     ytdl_buf_free(&obj);
     ytdl_buf_free(&obj_body);
+
+    uint8_t *var_start = strnstr(buf, ".get(\"n\"))&&(b=", buf_len);
+    if (!var_start)
+        return -1;
+    var_start += 15;
+
+    uint8_t *var_end = strnstr(var_start, "(", buf_len - (var_start - buf));
+    if (!var_end)
+        return -1;
+
+    char func_prefix[10] = {0};
+
+    snprintf(func_prefix, 10, "%.*s=", var_end - var_start, var_start);
+
+    uint8_t *func_start = strnstr(buf, func_prefix, buf_len);
+    if (!func_start)
+        return -1;
+    func_start += strlen(func_prefix);
+
+    uint8_t *func_end = strnstr(func_start, ".join(\"\")}", buf_len - (func_start - buf));
+    if (!func_end)
+        return -1;
+    func_end += 10;
+    
+    size_t js_func_size = sizeof(YTDL_SIG_JS_FUNC) + (func_end - func_start);
+    char *js_func = malloc(js_func_size);
+
+    snprintf(js_func, js_func_size, YTDL_SIG_JS_FUNC, func_end - func_start, func_start);
+
+    actions->script = JS_Eval(actions->ctx, js_func, strlen(js_func), "<sig-eval>", 
+                            JS_EVAL_FLAG_COMPILE_ONLY | JS_EVAL_TYPE_GLOBAL);
+
+    free(js_func);
+
+    if (JS_IsException(actions->script))
+    {
+        js_std_dump_error(actions->ctx);
+        return -1;
+    }
+
+    actions->func = JS_EvalFunction(actions->ctx, actions->script);
+
+    if (JS_IsException(actions->func))
+    {
+        js_std_dump_error(actions->ctx);
+        return -1;
+    }
+
+    if (!JS_IsFunction(actions->ctx, actions->func))
+    {
+        return -1;
+    }
+
     return 0;
 overflow:
     ytdl_buf_free(&func_body);
@@ -232,4 +314,26 @@ fail_malloc2:
 fail:
     free(capture);
     return -1;
+}
+
+int ytdl_sig_actions_init (ytdl_sig_actions_t *actions)
+{
+    memset(actions, 0, sizeof(ytdl_sig_actions_t));
+    actions->rt = JS_NewRuntime();
+    if (!actions->rt)
+        return -1;
+    actions->ctx = JS_NewContext(actions->rt);
+    if (!actions->ctx)
+        return -1;
+    actions->script = JS_UNDEFINED;
+    actions->func = JS_UNDEFINED;
+}
+
+void ytdl_sig_actions_free (ytdl_sig_actions_t *actions)
+{
+    if (!(JS_IsUndefined(actions->func) || JS_IsException(actions->func)))
+        JS_FreeValue(actions->ctx, actions->func);
+
+    JS_FreeContext(actions->ctx);
+    JS_FreeRuntime(actions->rt);
 }
