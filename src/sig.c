@@ -101,6 +101,9 @@ fail:
 int ytdl_sig_actions_extract (ytdl_sig_actions_t *actions, 
                               uint8_t *buf, size_t buf_len) 
 {
+    if (actions->bytecode)
+        return -1;
+
     int result, capture_count;
     uint8_t **capture;
 
@@ -274,6 +277,10 @@ int ytdl_sig_actions_extract (ytdl_sig_actions_t *actions,
     actions->script = JS_Eval(actions->ctx, js_func, strlen(js_func), "<sig-eval>", 
                             JS_EVAL_FLAG_COMPILE_ONLY | JS_EVAL_TYPE_GLOBAL);
 
+    actions->bytecode = JS_WriteObject(actions->ctx, &actions->bc_len, actions->script, JS_WRITE_OBJ_BYTECODE);
+    if (!actions->bytecode)
+        return -1;
+
     free(js_func);
 
     if (JS_IsException(actions->script))
@@ -327,6 +334,7 @@ int ytdl_sig_actions_init (ytdl_sig_actions_t *actions)
         return -1;
     actions->script = JS_UNDEFINED;
     actions->func = JS_UNDEFINED;
+    actions->bytecode = NULL;
 }
 
 void ytdl_sig_actions_free (ytdl_sig_actions_t *actions)
@@ -334,6 +342,50 @@ void ytdl_sig_actions_free (ytdl_sig_actions_t *actions)
     if (!(JS_IsUndefined(actions->func) || JS_IsException(actions->func)))
         JS_FreeValue(actions->ctx, actions->func);
 
+    if (actions->bytecode)
+        js_free(actions->ctx, actions->bytecode);
+
     JS_FreeContext(actions->ctx);
     JS_FreeRuntime(actions->rt);
+}
+
+int ytdl_sig_actions_save_file (ytdl_sig_actions_t *actions, FILE *fd)
+{
+
+    fwrite(actions, sizeof(ytdl_sig_actions_head_t), 1, fd);
+    fputc(sizeof(size_t), fd);
+    fwrite(&actions->bc_len, sizeof(size_t), 1, fd);
+    fwrite(actions->bytecode, sizeof(uint8_t), actions->bc_len, fd);
+
+    return 0;
+}
+
+int ytdl_sig_actions_load_file (ytdl_sig_actions_t *actions, FILE *fd)
+{
+    if (actions->bytecode)
+        return -1;
+
+    int s_size;
+    fread(actions, sizeof(ytdl_sig_actions_head_t), 1, fd);
+    s_size = fgetc(fd);
+    fread(&actions->bc_len, s_size, 1, fd);
+    actions->bytecode = js_malloc(actions->ctx, actions->bc_len);
+    if (!actions->bytecode)
+        return -1;
+    fread(actions->bytecode, sizeof(uint8_t), actions->bc_len, fd);
+
+    actions->script = JS_ReadObject(actions->ctx, actions->bytecode, actions->bc_len, JS_READ_OBJ_BYTECODE);
+    if (JS_IsException(actions->script))
+    {
+        js_std_dump_error(actions->ctx);
+        return -1;
+    }
+    actions->func = JS_EvalFunction(actions->ctx, actions->script);
+    if (JS_IsException(actions->func))
+    {
+        js_std_dump_error(actions->ctx);
+        return -1;
+    }
+
+    return 0;
 }

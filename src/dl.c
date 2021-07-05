@@ -154,7 +154,9 @@ static int ytdl__watch_html_complete (llhttp_t* parser)
     ytdl_dl_player_t *player = hashmap_get(&ctx->player_map, vid->info.player_url);
 
     if (player)
+    {
         ytdl__dl_finalize(ctx, player);
+    }    
     else    
     {
         ytdl_buf_t buf;
@@ -283,17 +285,17 @@ void ytdl_dl_shutdown (ytdl_dl_ctx_t *ctx)
 }
 
 void ytdl_dl_player_cache_save_file(ytdl_dl_ctx_t *ctx, FILE *fd)
-{   /*
+{   
     ytdl_dl_player_t *player;
     hashmap_foreach_data(player, &ctx->player_map) {
         fputs(player->player_path, fd);
         fputc(0, fd);
-        fwrite(&player->sig_actions, sizeof(ytdl_sig_actions_t), 1, fd);
-    }*/
+        ytdl_sig_actions_save_file(&player->sig_actions, fd);
+    }
 }
 
 int ytdl_dl_player_cache_load_file(ytdl_dl_ctx_t *ctx, FILE *fd)
-{   /*
+{   
     char player_path[100] = {0};
     int pos = 0,
         off = 0;
@@ -311,7 +313,8 @@ int ytdl_dl_player_cache_load_file(ytdl_dl_ctx_t *ctx, FILE *fd)
         ytdl_dl_player_t *player = malloc(sizeof(ytdl_dl_player_t));
 
         player->player_path = strdup(player_path);
-        fread(&player->sig_actions, sizeof(ytdl_sig_actions_t), 1, fd);
+        ytdl_sig_actions_init(&player->sig_actions);
+        ytdl_sig_actions_load_file(&player->sig_actions, fd);
 
         hashmap_put(&ctx->player_map, player->player_path, player);
 
@@ -320,7 +323,7 @@ int ytdl_dl_player_cache_load_file(ytdl_dl_ctx_t *ctx, FILE *fd)
             return 0;
         player_path[0] = c;
         pos = 1;
-    }*/
+    }
 }
 
 static int ytdl__media_echo_cb (llhttp_t* parser, const char *at, size_t length)

@@ -2,6 +2,7 @@
 #define YTDL_SIG_H
 
 #include <inttypes.h>
+#include <stdio.h>
 #include <stddef.h>
 #include <ytdl/quickjs.h>
 
@@ -21,10 +22,19 @@ typedef enum ytdl_sig_action_e {
     "return s.join('&');"                           \
     "};y;"
 
+#define YTDL_SIG_ACTIONS          \
+    ytdl_sig_action_t actions[4]; \
+    int actions_arg[4];           \
+    int actions_size;             
+
+typedef struct ytdl_sig_actions_head_s {
+    YTDL_SIG_ACTIONS
+} ytdl_sig_actions_head_t;
+
 typedef struct ytdl_sig_actions_s {
-    ytdl_sig_action_t actions[4];
-    int actions_arg[4];
-    int actions_size;
+    YTDL_SIG_ACTIONS
+    uint8_t *bytecode;
+    size_t bc_len;
     JSRuntime *rt;
     JSContext *ctx;
     JSValue script;
@@ -33,6 +43,8 @@ typedef struct ytdl_sig_actions_s {
 
 int ytdl_sig_actions_init (ytdl_sig_actions_t *actions);
 void ytdl_sig_actions_free (ytdl_sig_actions_t *actions);
+int ytdl_sig_actions_save_file (ytdl_sig_actions_t *actions, FILE *fd);
+int ytdl_sig_actions_load_file (ytdl_sig_actions_t *actions, FILE *fd);
 /**
  * Extracts the signature deciphering actions (steps) from the youtube player javascript.
  * 
