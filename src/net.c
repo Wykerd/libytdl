@@ -197,6 +197,58 @@ void ytdl_net_request_media (ytdl_buf_t *buf, const char* path_buf, size_t path_
     buf->len = strlen(buf->base);
 }
 
+void ytdl_net_request_segment (ytdl_buf_t *buf, 
+                               const char* path_buf, size_t path_len, 
+                               const char* segment_buf, size_t segment_len, 
+                               const char* host_buf, size_t host_len)
+{
+    size_t buf_size = 85 + sizeof(YTDL_DL_USER_AGENT) + path_len + host_len + segment_len; 
+
+    buf->len = 0;
+    if (!ytdl_buf_alloc(buf, buf_size))
+        return;
+
+    snprintf(
+        buf->base, 
+        buf_size,
+        "GET %.*s%.*s HTTP/1.1\r\n"
+        "Host: %.*s\r\n"
+        "Connection: keep-alive\r\n"
+        "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
+        "Accept: */*\r\n\r\n",
+        path_len, path_buf,
+        segment_len, segment_buf,
+        host_len, host_buf
+    );
+
+    buf->len = strlen(buf->base);
+}
+
+void ytdl_net_request_generic (ytdl_buf_t *buf, 
+                               const char* path_buf, size_t path_len, 
+                               const char* host_buf, size_t host_len)
+{
+    size_t buf_size = 85 + sizeof(YTDL_DL_USER_AGENT) + path_len + host_len; 
+
+    buf->len = 0;
+    if (!ytdl_buf_alloc(buf, buf_size))
+        return;
+
+    snprintf(
+        buf->base, 
+        buf_size,
+        "GET %.*s HTTP/1.1\r\n"
+        "Host: %.*s\r\n"
+        "Connection: keep-alive\r\n"
+        "User-Agent: " YTDL_DL_USER_AGENT "\r\n"
+        "Accept: */*\r\n\r\n",
+        path_len, path_buf,
+        host_len, host_buf
+    );
+
+    buf->len = strlen(buf->base);
+}
+
 void ytdl_net_get_watch_url (char url[YTDL_WATCH_URL_SIZE], char id[YTDL_ID_SIZE])
 {
     sprintf(url, "%s%s", "https://www.youtube.com/watch?v=", id);

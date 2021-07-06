@@ -514,6 +514,9 @@ char *ytdl_info_get_format_url2 (ytdl_info_ctx_t *info, ytdl_info_format_t *form
         urldecode(sig, sig_start);
         urldecode(sp, sp_start);
         urldecode(url, url_start);
+        urldecode(url, url);
+
+        //puts(url);
         
         free(cipher);
 

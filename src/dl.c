@@ -487,3 +487,241 @@ void ytdl_dl_media_shutdown (ytdl_dl_media_ctx_t *ctx, ytdl_dl_media_cb on_close
     uv_idle_init(ctx->http.loop, idle);
     uv_idle_start(idle, ytdl__dl_media_shutdown);
 }
+
+static int ytdl__dash_manifest_cb (llhttp_t* parser, const char *at, size_t length)
+{
+    ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
+
+    if (ctx->manifest.len + length > ctx->manifest.size)
+    {
+        // TODO: memory check
+        ytdl_buf_realloc(&ctx->manifest, ctx->manifest.len + length);
+    }
+
+    memcpy(&ctx->manifest.base[ctx->manifest.len], at, length);
+    ctx->manifest.len += length;
+
+    return 0;
+}
+
+static int ytdl__dash_echo_cb (llhttp_t* parser, const char *at, size_t length)
+{
+    ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
+
+    if (ctx->on_data)
+        ctx->on_data(ctx, at, length);
+
+    return 0;
+}
+
+static int ytdl__dash_segment_complete_cb (llhttp_t* parser)
+{
+    ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
+
+    ctx->chunks_downloaded++;
+
+    xmlChar *segment = ctx->is_video ?
+        ytdl_dash_next_video_segment(&ctx->dash) :
+        ytdl_dash_next_audio_segment(&ctx->dash);
+
+    if (segment)
+    {
+        ytdl_buf_t buf;
+        ytdl_net_request_segment(&buf, 
+            ctx->path, ctx->path_len,
+            segment, strlen(segment), 
+            ctx->host, ctx->host_len);
+        ytdl_http_client_write(&ctx->http, (uv_buf_t *)&buf, ytdl__write_cb);
+        ytdl_buf_free(&buf);
+    }
+    else
+        ctx->on_complete(ctx);
+    
+    return 0;
+}
+
+static void ytdl__dash_segment_connected_cb (ytdl_http_client_t *client)
+{
+    ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)client->data;
+
+    ctx->http.parser_settings.on_body = ytdl__dash_echo_cb;
+    ctx->http.parser_settings.on_message_complete = ytdl__dash_segment_complete_cb;
+
+    ytdl__dash_segment_complete_cb(&ctx->http.parser);
+}
+
+void ytdl_dl_dash_load_fork (ytdl_dl_dash_ctx_t *ctx)
+{
+    struct http_parser_url url;
+    http_parser_url_init(&url);
+
+    ytdl_dash_ctx_init(&ctx->dash, ctx->manifest.base, ctx->manifest.len);
+    ctx->is_dash_init = 1;
+
+    ytdl_dash_get_format(&ctx->dash, ctx->on_pick_filter);
+
+    xmlChar *u = ctx->is_video ? ctx->dash.v_base_url : ctx->dash.a_base_url;
+
+    if (http_parser_parse_url(u, strlen(u), 0, &url))
+    {
+        // TODO: ctx->on_status 
+        return;
+    }
+
+    ctx->host = malloc(url.field_data[UF_HOST].len + 1);
+    ctx->host_len = url.field_data[UF_HOST].len;
+    memcpy(ctx->host, u + url.field_data[UF_HOST].off, url.field_data[UF_HOST].len);
+    ctx->host[url.field_data[UF_HOST].len] = 0;
+
+    ctx->path = malloc(url.field_data[UF_PATH].len + 1);
+    ctx->path_len = url.field_data[UF_PATH].len;
+    memcpy(ctx->path, u + url.field_data[UF_PATH].off, url.field_data[UF_PATH].len);
+    ctx->path[url.field_data[UF_PATH].len] = 0;
+
+    ytdl_http_client_connect(&ctx->http, 1, ctx->host, "443", ytdl__status_cb, ytdl__dash_segment_connected_cb);
+}
+
+static void ytdl__dash_close_cb (uv_handle_t* handle) 
+{
+    ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)((ytdl_http_client_t *)handle->data)->data;
+
+    ctx->is_shutdown = 0;
+    ytdl_http_client_init(ctx->http.loop, &ctx->http);
+
+    if (ctx->on_manifest)
+        ctx->on_manifest(ctx);
+
+    ytdl_dl_dash_load_fork(ctx);
+}
+
+static int ytdl__dash_manifest_complete_cb (llhttp_t* parser)
+{
+    ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
+
+    ctx->is_shutdown = 1;
+    ytdl_http_client_shutdown(&ctx->http, ytdl__dash_close_cb);
+    
+    return 0;
+}
+
+int ytdl_dl_dash_ctx_init (uv_loop_t *loop, ytdl_dl_dash_ctx_t *ctx)
+{
+    memset(ctx, 0, sizeof(ytdl_dl_dash_ctx_t));
+    if (!ytdl_http_client_init(loop, &ctx->http))
+    {
+        return 1;
+    }
+
+    ctx->http.data = ctx;
+    ctx->http.settings.keep_alive = 1;
+    ctx->http.parser_settings.on_body = ytdl__dash_manifest_cb;
+    ctx->http.parser_settings.on_message_complete = ytdl__dash_manifest_complete_cb;
+
+    if (!ytdl_buf_alloc(&ctx->manifest, 1))
+        return 1;
+
+    return 0;
+}
+
+static void ytdl__dash_manifest_connected_cb (ytdl_http_client_t *client)
+{
+    ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)client->data;
+
+    ytdl_buf_t buf;
+    ytdl_net_request_generic(&buf, ctx->manifest_path, ctx->manifest_path_len, ctx->manifest_host, ctx->manifest_host_len);
+    ytdl_http_client_write(&ctx->http, (uv_buf_t *)&buf, ytdl__write_cb);
+    ytdl_buf_free(&buf);
+}
+
+int ytdl_dl_dash_ctx_connect (ytdl_dl_dash_ctx_t *ctx, const char *manifest_url)
+{
+    struct http_parser_url url;
+    http_parser_url_init(&url);
+
+    if (http_parser_parse_url(manifest_url, strlen(manifest_url), 0, &url))
+        return -1;
+
+    ctx->manifest_host_len = url.field_data[UF_HOST].len;
+    ctx->manifest_host = malloc(ctx->manifest_host_len + 1);
+    memcpy(ctx->manifest_host, manifest_url + url.field_data[UF_HOST].off, url.field_data[UF_HOST].len);
+    ctx->manifest_host[url.field_data[UF_HOST].len] =  0;
+
+    ctx->manifest_path_len = url.field_data[UF_PATH].len;
+    ctx->manifest_path = malloc(ctx->manifest_path_len + 1);
+    memcpy(ctx->manifest_path, manifest_url + url.field_data[UF_PATH].off, url.field_data[UF_PATH].len);
+    ctx->manifest_path[url.field_data[UF_PATH].len] =  0;
+
+    ytdl_http_client_connect(&ctx->http, 1, ctx->manifest_host, "443", ytdl__status_cb, ytdl__dash_manifest_connected_cb);
+
+    return 0;
+}
+
+static void ytdl__dash_close_f_cb (uv_handle_t* handle) 
+{
+    ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)((ytdl_http_client_t *)handle->data)->data;
+
+    ctx->on_close(ctx);
+}
+
+void ytdl__dl_dash_shutdown (uv_idle_t* handle) 
+{
+    ytdl_dl_dash_ctx_t *ctx = handle->data;
+
+    uv_idle_stop(handle);
+    uv_close((uv_handle_t*)handle, close_free_cb);
+
+    if (ctx->path)
+        free(ctx->path);
+    if (ctx->host)
+        free(ctx->host);
+    if (ctx->manifest_host)
+        free(ctx->manifest_host);
+    if (ctx->manifest_path)
+        free(ctx->manifest_path);
+    
+    if (ctx->is_dash_init)
+        ytdl_dash_ctx_free(&ctx->dash);
+    
+    ytdl_buf_free(&ctx->manifest);
+
+    if (!ctx->is_shutdown)
+        ytdl_http_client_shutdown(&ctx->http, ytdl__dash_close_f_cb);
+}
+
+int ytdl_dl_dash_ctx_fork (ytdl_dl_dash_ctx_t *ctx, ytdl_dl_dash_ctx_t *fork)
+{
+    if (!ytdl_buf_realloc(&fork->manifest, ctx->manifest.size))
+        return 1;
+    memcpy(fork->manifest.base, ctx->manifest.base, ctx->manifest.len);
+    fork->manifest.len = ctx->manifest.len;
+
+    fork->on_data = ctx->on_data;
+    fork->on_complete = ctx->on_complete;
+    fork->on_status = ctx->on_status;
+    fork->on_close = ctx->on_close;
+    fork->on_manifest = ctx->on_manifest;
+    fork->on_pick_filter = ctx->on_pick_filter;
+
+    fork->manifest_path = strdup(ctx->manifest_path);
+    fork->manifest_host = strdup(ctx->manifest_host);
+
+    fork->manifest_host_len = ctx->manifest_host_len;
+    fork->manifest_path_len = ctx->manifest_path_len;
+
+    fork->is_shutdown = ctx->is_shutdown;
+    fork->is_dash_init = ctx->is_dash_init;
+    fork->is_video = ctx->is_video;
+    fork->data = ctx->data;
+
+    return 0;
+}
+
+void ytdl_dl_dash_shutdown (ytdl_dl_dash_ctx_t *ctx, ytdl_dl_dash_cb on_close)
+{
+    // finish the current event before killing everything
+    ctx->on_close = on_close;
+    uv_idle_t *idle = malloc(sizeof(uv_async_t));
+    idle->data = ctx;
+    uv_idle_init(ctx->http.loop, idle);
+    uv_idle_start(idle, ytdl__dl_dash_shutdown);
+}

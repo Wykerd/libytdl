@@ -90,7 +90,8 @@ void ytdl_http_client_write (ytdl_http_client_t *client, uv_buf_t *buf, ytdl_htt
 }
 
 int ytdl_http_client_init (uv_loop_t *loop, ytdl_http_client_t *client) {
-    ytdl_tcp_client_init(loop, (ytdl_tcp_client_t *)client);
+    if (!ytdl_tcp_client_init(loop, (ytdl_tcp_client_t *)client))
+        return 0;
 
     /* Clear all the pointers */
     client->tls_ctx = NULL;
@@ -654,5 +655,5 @@ int ytdl_http_client_connect (ytdl_http_client_t *client, int is_tls, const char
     client->is_tls = is_tls;
     client->hostname = strdup(host);
 
-    return ytdl_tcp_client_connect((ytdl_tcp_client_t *)client, host, port, (ytdl_tcp_client_status_cb)status_cb, ytdl__http_client_tcp_connect_cb);;
+    return ytdl_tcp_client_connect((ytdl_tcp_client_t *)client, host, port, (ytdl_tcp_client_status_cb)status_cb, ytdl__http_client_tcp_connect_cb);
 }

@@ -6,6 +6,9 @@
 
 int ytdl_tcp_client_init (uv_loop_t *loop, ytdl_tcp_client_t *client) {
     client->loop = loop;
+    
+    if (uv_tcp_init(client->loop, &client->tcp) != 0)
+        return 0;
 
     /* Clear all the pointers */
     client->connect_cb = NULL;
@@ -50,18 +53,6 @@ static void ytdl__tcp_client_connect (
     struct sockaddr *addr
 ) {
     int r;
-    r = uv_tcp_init(client->loop, &client->tcp);
-
-    if (r != 0) {
-        ytdl_net_status_t stat = {
-            .type = YTDL_NET_E_TCP_INIT,
-            .code = r
-        };
-
-        client->status_cb(client, &stat);
-
-        return;
-    };
 
     client->tcp.data = client;
 

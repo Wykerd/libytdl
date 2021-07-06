@@ -146,7 +146,11 @@ int ytdl_dash_get_format (ytdl_dash_ctx_t *ctx,
             if (!strcmp(v_list->name, "Initialization"))
             {
                 ctx->v_initial_segment = xmlGetProp(v_list, "sourceURL");
-                break;
+                ctx->v_chunk_count++;
+            }
+            else if (!strcmp(v_list->name, "SegmentURL"))
+            {
+                ctx->v_chunk_count++;
             }
         }
     }
@@ -159,7 +163,11 @@ int ytdl_dash_get_format (ytdl_dash_ctx_t *ctx,
             if (!strcmp(a_list->name, "Initialization"))
             {
                 ctx->a_initial_segment = xmlGetProp(a_list, "sourceURL");
-                break;
+                ctx->a_chunk_count++;
+            }
+            else if (!strcmp(a_list->name, "SegmentURL"))
+            {
+                ctx->a_chunk_count++;
             }
         }
     }
@@ -174,8 +182,16 @@ char *ytdl_dash_next_video_segment (ytdl_dash_ctx_t *ctx)
 {
     if (!ctx->v_segment_path && ctx->v_initial_segment)
     {
-        ctx->v_segment_path = ctx->v_initial_segment;
+        size_t size_path = strlen(ctx->v_initial_segment);
+        ctx->v_segment_path = xmlMalloc(size_path + 1);
+        memcpy(ctx->v_segment_path, ctx->v_initial_segment, size_path);
+        ctx->v_segment_path[size_path] = 0;
         return ctx->v_segment_path;
+    };
+    if (ctx->v_segment_path)
+    {
+        xmlFree(ctx->v_segment_path);
+        ctx->v_segment_path = NULL;
     };
     for (; ctx->v_segment_list; ctx->v_segment_list = ctx->v_segment_list->next) 
     {
@@ -198,8 +214,16 @@ char *ytdl_dash_next_audio_segment (ytdl_dash_ctx_t *ctx)
 {
     if (!ctx->a_segment_path && ctx->a_initial_segment)
     {
-        ctx->a_segment_path = ctx->a_initial_segment;
+        size_t size_path = strlen(ctx->a_initial_segment);
+        ctx->a_segment_path = xmlMalloc(size_path + 1);
+        memcpy(ctx->a_segment_path, ctx->a_initial_segment, size_path);
+        ctx->a_segment_path[size_path] = 0;
         return ctx->a_segment_path;
+    };
+    if (ctx->a_segment_path)
+    {
+        xmlFree(ctx->a_segment_path);
+        ctx->a_segment_path = NULL;
     };
     for (; ctx->a_segment_list; ctx->a_segment_list = ctx->a_segment_list->next) 
     {

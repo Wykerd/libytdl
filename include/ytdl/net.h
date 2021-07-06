@@ -77,4 +77,23 @@ void ytdl_net_request_media (ytdl_buf_t *buf, const char* path_buf, size_t path_
                              const char* query_buf, size_t query_len, 
                              const char* host_buf, size_t host_len);
 
+/**
+ * Generic GET request without query string 
+ * 
+ * @returns The HTTP/1.1 GET request
+ */
+void ytdl_net_request_generic (ytdl_buf_t *buf, 
+                               const char* path_buf, size_t path_len, 
+                               const char* host_buf, size_t host_len);
+
+/**
+ * GET Dash segment
+ * 
+ * @returns The HTTP/1.1 GET request for dash segemnt
+ */
+void ytdl_net_request_segment (ytdl_buf_t *buf, 
+                               const char* path_buf, size_t path_len, 
+                               const char* segment_buf, size_t segment_len, 
+                               const char* host_buf, size_t host_len);
+
 #endif

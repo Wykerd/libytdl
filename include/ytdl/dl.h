@@ -9,6 +9,7 @@
 #include <ytdl/http/http.h>
 #include <ytdl/hashmap.h>
 #include <ytdl/url_parser.h>
+#include <ytdl/dash.h>
 
 #define YTDL_DL_IS_CONNECTED    (1)
 #define YTDL_DL_IS_SHUTDOWN     (1 << 1)
@@ -88,5 +89,55 @@ int ytdl_dl_media_ctx_init (uv_loop_t *loop, ytdl_dl_media_ctx_t *ctx,
                             ytdl_info_format_t *format, ytdl_info_ctx_t *info);
 int ytdl_dl_media_ctx_connect (ytdl_dl_media_ctx_t *ctx);
 void ytdl_dl_media_shutdown (ytdl_dl_media_ctx_t *ctx, ytdl_dl_media_cb on_close);
+
+typedef struct ytdl_dl_dash_ctx_s ytdl_dl_dash_ctx_t;
+
+typedef void (*ytdl_dl_dash_data_cb)(ytdl_dl_dash_ctx_t *ctx, const char *buf, size_t len);
+typedef void (*ytdl_dl_dash_cb)(ytdl_dl_dash_ctx_t *ctx);
+typedef void (*ytdl_dl_dash_status_cb)(ytdl_dl_dash_ctx_t *ctx, ytdl_net_status_t *status);
+
+struct ytdl_dl_dash_ctx_s {
+    ytdl_http_client_t http;
+    ytdl_buf_t manifest;
+
+    ytdl_dl_dash_data_cb on_data;
+    ytdl_dl_dash_cb on_complete;
+    // Relays http status
+    ytdl_dl_dash_status_cb on_status;
+    ytdl_dl_dash_cb on_close;
+    ytdl_dl_dash_cb on_manifest;
+    ytdl_dash_representation_select_cb on_pick_filter;
+
+    ytdl_dash_ctx_t dash;
+
+    char *manifest_path;
+    char *manifest_host;
+    size_t manifest_path_len;
+    size_t manifest_host_len;
+
+    char *host;
+    size_t host_len;
+    
+    char *path;
+    size_t path_len;
+
+    int is_shutdown;
+    int is_dash_init;
+    int is_video;
+    size_t chunks_downloaded;
+    // opaque data
+    void *data;
+};
+
+int ytdl_dl_dash_ctx_init (uv_loop_t *loop, ytdl_dl_dash_ctx_t *ctx);
+int ytdl_dl_dash_ctx_connect (ytdl_dl_dash_ctx_t *ctx, const char *manifest_url);
+void ytdl_dl_dash_shutdown (ytdl_dl_dash_ctx_t *ctx, ytdl_dl_dash_cb on_close);
+void ytdl_dl_dash_load_fork (ytdl_dl_dash_ctx_t *ctx);
+/**
+ * To be called only within on_manifest
+ * 
+ * Used to create a clone of the manifest so that you can download another format
+ */
+int ytdl_dl_dash_ctx_fork (ytdl_dl_dash_ctx_t *ctx, ytdl_dl_dash_ctx_t *fork);
 
 #endif

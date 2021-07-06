@@ -35,7 +35,7 @@ int ytdl_mux_files (const char *audio_path, const char *video_path, const char *
 {
     int video_st = -1, audio_st = -1;
     int64_t next_v_pts = 0, next_a_pts = 0;
-    AVFormatContext *a_fmt_ctx = NULL, *v_fmt_ctx = NULL, *o_fmt_ctx;
+    AVFormatContext *a_fmt_ctx = NULL, *v_fmt_ctx = NULL, *o_fmt_ctx = NULL;
     AVPacket packet;
     int ret, encode_video = 1, encode_audio = 1;
 
