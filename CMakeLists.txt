@@ -33,6 +33,8 @@ target_include_directories(regexp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set_target_properties(regexp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+find_package(LibXml2 REQUIRED)
+
 add_library(ytdlcore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sig.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/buffer.c
@@ -41,12 +43,18 @@ add_library(ytdlcore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/net.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/url_parser.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/quickjs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/dash.c
 )
 
 target_compile_definitions(ytdlcore PRIVATE CONFIG_VERSION="2021-03-27")
 
-target_include_directories(ytdlcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(ytdlcore PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${LIBXML2_INCLUDE_DIR}
+)
+
 target_link_libraries(ytdlcore PRIVATE
+    LibXml2::LibXml2
     regexp 
 )
 
