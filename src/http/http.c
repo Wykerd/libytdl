@@ -156,13 +156,6 @@ void ytdl__tls_poll_close (uv_handle_t *handle)
 
     sht->data = client;
 
-    err = uv_idle_start(sht, ytdl__http_client_tls_shutdown_cb);
-    if (err) {
-        client->tls_close_cb((uv_handle_t *)&client->tcp);
-    }
-}
-
-void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb) {
     for (size_t i = 0; i < client->tls_write_queue.len; i++) {
         free(client->tls_write_queue.bufs[i]);
     }
@@ -171,6 +164,13 @@ void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb
     if (client->tls_read_buf)
         free(client->tls_read_buf);
 
+    err = uv_idle_start(sht, ytdl__http_client_tls_shutdown_cb);
+    if (err) {
+        client->tls_close_cb((uv_handle_t *)&client->tcp);
+    }
+}
+
+void ytdl_http_client_shutdown (ytdl_http_client_t *client, uv_close_cb close_cb) {
     client->tcp.data = client;
 
     if (client->hostname)

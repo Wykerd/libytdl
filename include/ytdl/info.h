@@ -129,8 +129,14 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
  */
 ytdl_info_playability_status_t ytdl_info_get_playability_status (ytdl_info_ctx_t *info);
 
+/**
+ * @returns The status message in case of a non YTDL_PLAYABILITY_OK status code
+ */
 const char *ytdl_info_get_playability_status_message (ytdl_info_ctx_t *info);
 
+/**
+ * Loops through the JSON nodes and populates the video info into the context.
+ */
 void ytdl_info_extract_video_details (ytdl_info_ctx_t *info);
 
 /**

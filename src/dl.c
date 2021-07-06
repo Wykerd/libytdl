@@ -382,6 +382,90 @@ static int ytdl__media_chunk_complete_cb (llhttp_t* parser)
     return 0;
 }
 
+static int ytdl__media_chunk_complete_cb (llhttp_t* parser);
+static int ytdl__media_status_cb (llhttp_t* parser);
+
+static void ytdl__media_close_redirect_cb (uv_handle_t* handle) 
+{
+    ytdl_dl_media_ctx_t *ctx = (ytdl_dl_media_ctx_t *)((ytdl_http_client_t *)handle->data)->data;
+
+    http_parser_url_init(&ctx->url);
+
+    if (!ytdl_http_client_init(ctx->http.loop, &ctx->http))
+    {
+        return; //TODO:
+    }
+
+    ctx->http.data = ctx;
+    ctx->http.settings.keep_alive = 1;
+    ctx->http.parser_settings.on_status_complete = ytdl__media_status_cb;
+    ctx->http.parser_settings.on_body = ytdl__media_echo_cb;
+    ctx->http.parser_settings.on_message_complete = ytdl__media_chunk_complete_cb;
+
+    if (http_parser_parse_url(ctx->format_url, strlen(ctx->format_url), 0, &ctx->url))
+        return; //TODO : BETTER
+
+    ytdl_dl_media_ctx_connect(ctx);
+}
+
+static int ytdl__media_header_value_cb (llhttp_t* parser, const char *at, size_t length)
+{
+    ytdl_dl_media_ctx_t *ctx = (ytdl_dl_media_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
+
+    if (ctx->redirect_was_location)
+    {
+        free(ctx->format_url);
+        ctx->format_url = malloc(length + 1);
+        memcpy(ctx->format_url, at, length);
+        ctx->format_url[length] = 0;
+
+        ctx->http.parser_settings.on_header_field = NULL;
+        ctx->http.parser_settings.on_header_value = NULL;
+
+        ctx->want_redirect = 0;
+        ctx->redirect_was_location = 0;
+
+        ytdl_http_client_shutdown(&ctx->http, ytdl__media_close_redirect_cb);
+    };
+
+    return 0;
+}
+
+static int ytdl__media_header_field_cb (llhttp_t* parser, const char *at, size_t length)
+{
+    ytdl_dl_media_ctx_t *ctx = (ytdl_dl_media_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
+    if (ctx->want_redirect)
+    {
+        if (!strncasecmp(at, "location", length))
+        {
+            ctx->redirect_was_location = 1;
+            ctx->http.parser_settings.on_header_value = ytdl__media_header_value_cb;
+        }
+    };
+
+    return 0;
+}
+
+static int ytdl__media_status_cb (llhttp_t* parser)
+{
+    ytdl_dl_media_ctx_t *ctx = (ytdl_dl_media_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
+
+    if ((parser->status_code == 301) || (parser->status_code == 302))
+    {
+        ctx->want_redirect = 1;
+        ctx->http.parser_settings.on_header_field = ytdl__media_header_field_cb;
+        return 0;
+    }
+
+    if (parser->status_code != 200)
+    {
+        // TODO: status
+        return 1;
+    }
+
+    return 0;
+}
+
 int ytdl_dl_media_ctx_init (uv_loop_t *loop, ytdl_dl_media_ctx_t *ctx, 
                             ytdl_info_format_t *format, ytdl_info_ctx_t *info)
 {
@@ -392,6 +476,7 @@ int ytdl_dl_media_ctx_init (uv_loop_t *loop, ytdl_dl_media_ctx_t *ctx,
 
     ctx->http.data = ctx;
     ctx->http.settings.keep_alive = 1;
+    ctx->http.parser_settings.on_status_complete = ytdl__media_status_cb;
     ctx->http.parser_settings.on_body = ytdl__media_echo_cb;
     ctx->http.parser_settings.on_message_complete = ytdl__media_chunk_complete_cb;
 

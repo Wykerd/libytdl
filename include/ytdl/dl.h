@@ -79,6 +79,8 @@ struct ytdl_dl_media_ctx_s {
     ytdl_dl_media_cb on_close;
 
     int is_chunked;
+    int want_redirect;
+    int redirect_was_location;
     size_t last_chunk_end;
 
     // opaque data

@@ -555,7 +555,8 @@ char *ytdl_info_get_format_url2 (ytdl_info_ctx_t *info, ytdl_info_format_t *form
             }
         }
 
-        size_t url_len = strlen(url);
+        size_t url_offset = strlen(url);
+        size_t url_len = url_offset;
         if (sp)
             url_len += strlen(sp) + 2;
         else 
@@ -565,7 +566,7 @@ char *ytdl_info_get_format_url2 (ytdl_info_ctx_t *info, ytdl_info_format_t *form
 
         url = realloc(url, url_len + 2);
 
-        sprintf(url, "%s?%s=%s", url, sp ? sp : "signature", sig);
+        sprintf(url + url_offset, "&%s=%s", sp ? sp : "signature", sig);
 
         format->url = url;
 
