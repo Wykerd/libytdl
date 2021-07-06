@@ -59,25 +59,38 @@ typedef struct ytdl_info_ctx_s {
     char *ps_message;
 
     // // //
+    // Video details
+    // // //
+    const char *title;
+    const char *length_seconds;
+    const char *channel_id;
+    const char *short_description;
+    double average_rating;
+    const char *view_count;
+    const char *author;
+
+    // // //
     // JS Internals
     // // //
-    
     yyjson_doc *init_pr_doc;
     yyjson_doc *init_d_doc;
 
     yyjson_val *player_response;
     yyjson_val *response;
+    yyjson_val *video_details;
 
     /// playability status
     yyjson_val *ps;
 
-    /// streamind data
+    /// streaming data
     yyjson_val *sd;
     yyjson_val *sd_formats;
     yyjson_val *sd_adaptive_formats;
+    const char *dash_manifest_url;
 
     int is_pr_populated;
     int is_fmt_populated;
+    int is_details_populated;
 
     // // //
     // Decipher parameters
@@ -117,6 +130,8 @@ int ytdl_info_extract_watch_html (ytdl_info_ctx_t *info,
 ytdl_info_playability_status_t ytdl_info_get_playability_status (ytdl_info_ctx_t *info);
 
 const char *ytdl_info_get_playability_status_message (ytdl_info_ctx_t *info);
+
+void ytdl_info_extract_video_details (ytdl_info_ctx_t *info);
 
 /**
  * Extract the formats from the data acquired from ytdl_info_extract_watch_html

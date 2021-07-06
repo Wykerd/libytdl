@@ -129,6 +129,8 @@ static void ytdl__populate_pr_dat (ytdl_info_ctx_t *info)
             info->ps = val;
         else if (yyjson_equals_str(key, "streamingData"))
             info->sd = val;
+        else if (yyjson_equals_str(key, "videoDetails"))
+            info->video_details = val;
     }
 
     info->is_pr_populated = 1;
@@ -212,6 +214,8 @@ int ytdl_info_extract_formats (ytdl_info_ctx_t *info)
                 info->sd_formats = val;
             else if (yyjson_equals_str(key, "adaptiveFormats"))
                 info->sd_adaptive_formats = val;
+            else if (yyjson_equals_str(key, "dashManifestUrl"))
+                info->dash_manifest_url = yyjson_get_str(val);
         }
     }
 
@@ -259,6 +263,34 @@ int ytdl_info_extract_formats (ytdl_info_ctx_t *info)
 void ytdl_info_set_sig_actions (ytdl_info_ctx_t *info, ytdl_sig_actions_t *sig_actions) 
 {
     info->sig_actions = sig_actions;
+}
+
+void ytdl_info_extract_video_details (ytdl_info_ctx_t *info)
+{
+    if (info->is_details_populated)
+        return;
+
+    yyjson_val *key, *val;
+    yyjson_obj_iter iter;yyjson_obj_iter_init(info->video_details, &iter);
+    while ((key = yyjson_obj_iter_next(&iter))) {
+        val = yyjson_obj_iter_get_val(key);
+        if (yyjson_equals_str(key, "title"))
+            info->title = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "lengthSeconds"))
+            info->length_seconds = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "channelId"))
+            info->channel_id = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "shortDescription"))
+            info->short_description = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "viewCount"))
+            info->view_count = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "author"))
+            info->author = yyjson_get_str(val);
+        else if (yyjson_equals_str(key, "averageRating"))
+            info->average_rating = yyjson_get_real(val);
+    }
+
+    info->is_details_populated = 1;
 }
 
 static void ytdl__info_format_populate2 (ytdl_info_format_t *format) 
