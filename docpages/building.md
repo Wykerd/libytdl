@@ -12,7 +12,7 @@ This library uses `cmake` and a modern C compiler like `gcc` or `clang`. You can
 Additionally `libytdlhttp` depends on `llhttp` which requires nodejs to build. [See download instructions on their website.](https://nodejs.org/en/download/package-manager/)
 
 Lastly install dependencies: 
-- Archlinux: `sudo pacman -S openssl libuv ffmpeg`
+- Archlinux: `sudo pacman -S openssl libuv ffmpeg libxml2`
 
 # Building
 First recursively clone the repository from Github:
@@ -52,11 +52,6 @@ This library uses `cmake` and `clang` to build. You can install it with [homebre
 brew install cmake
 ```
 
-Next install the external dependencies
-```
-brew install uriparser
-```
-
 Additionally `libytdlhttp` depends on `llhttp` which requires nodejs to build. Download it with brew as follows:
 ```
 brew install nodejs
@@ -64,7 +59,7 @@ brew install nodejs
 
 Install the dependencies:
 ```
-brew install openssl libuv ffmpeg
+brew install openssl libuv ffmpeg libxml2
 ```
 
 # Building

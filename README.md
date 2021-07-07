@@ -12,6 +12,7 @@ libytdl is split into 3 seperate libraries under the same prefix
     - Video info extraction
     - Format url deciphering
     - HTTP request generation
+    - Dash Manifest parser
 - `libytdlhttp` - the http client library
     - Video downloader
 - `libytdlav` - video and audio file handling library
@@ -26,6 +27,9 @@ Additionally a cli is being implemented to use the library called `ytdlcli`.
 # Dependencies
 
 ## Core dependencies (libytdlcore)
+
+### External
+- [Libxml2](http://xmlsoft.org/)
 
 ### Included (Packaged)
 - [QuickJS](https://bellard.org/quickjs/)
