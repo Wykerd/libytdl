@@ -87,7 +87,9 @@ static int ytdl__dl_finalize (ytdl_dl_ctx_t *ctx, ytdl_dl_player_t *player)
 
     ctx->status |= YTDL_DL_IS_IDLE;
 
-    if (--ctx->queue.len > 0)
+    ctx->queue.len--;
+
+    if (ctx->queue.len > 0)
         ytdl__dl_wake(ctx);
 
     // ytdl_http_client_shutdown(&ctx->http, ytdl__close_cb);
@@ -213,7 +215,7 @@ int ytdl_dl_get_info (ytdl_dl_ctx_t *ctx, const char id[YTDL_ID_SIZE],
     }
 
     ctx->queue.videos[ctx->queue.len++] = malloc(sizeof(ytdl_dl_video_t));
-    memcpy(ctx->queue.videos[ctx->queue.len - 1]->id, id, YTDL_ID_SIZE);
+    memcpy(&ctx->queue.videos[ctx->queue.len - 1]->id[0], &id[0], YTDL_ID_SIZE);
     if (!ytdl_buf_alloc(&ctx->queue.videos[ctx->queue.len - 1]->response, 1))
         return -1;
     ytdl_info_ctx_init(&ctx->queue.videos[ctx->queue.len - 1]->info);
@@ -603,7 +605,8 @@ static int ytdl__dash_segment_complete_cb (llhttp_t* parser)
 {
     ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
 
-    ctx->chunks_downloaded++;
+    if (ctx->on_segment_complete)
+        ctx->on_segment_complete(ctx);
 
     xmlChar *segment = ctx->is_video ?
         ytdl_dash_next_video_segment(&ctx->dash) :
@@ -632,7 +635,22 @@ static void ytdl__dash_segment_connected_cb (ytdl_http_client_t *client)
     ctx->http.parser_settings.on_body = ytdl__dash_echo_cb;
     ctx->http.parser_settings.on_message_complete = ytdl__dash_segment_complete_cb;
 
-    ytdl__dash_segment_complete_cb(&ctx->http.parser);
+    xmlChar *segment = ctx->is_video ?
+        ytdl_dash_next_video_segment(&ctx->dash) :
+        ytdl_dash_next_audio_segment(&ctx->dash);
+
+    if (segment)
+    {
+        ytdl_buf_t buf;
+        ytdl_net_request_segment(&buf, 
+            ctx->path, ctx->path_len,
+            segment, strlen(segment), 
+            ctx->host, ctx->host_len);
+        ytdl_http_client_write(&ctx->http, (uv_buf_t *)&buf, ytdl__write_cb);
+        ytdl_buf_free(&buf);
+    }
+    else
+        ctx->on_complete(ctx);
 }
 
 void ytdl_dl_dash_load_fork (ytdl_dl_dash_ctx_t *ctx)
@@ -786,6 +804,7 @@ int ytdl_dl_dash_ctx_fork (ytdl_dl_dash_ctx_t *ctx, ytdl_dl_dash_ctx_t *fork)
     fork->on_close = ctx->on_close;
     fork->on_manifest = ctx->on_manifest;
     fork->on_pick_filter = ctx->on_pick_filter;
+    fork->on_segment_complete = ctx->on_segment_complete;
 
     fork->manifest_path = strdup(ctx->manifest_path);
     fork->manifest_host = strdup(ctx->manifest_host);

@@ -146,11 +146,11 @@ int ytdl_dash_get_format (ytdl_dash_ctx_t *ctx,
             if (!strcmp(v_list->name, "Initialization"))
             {
                 ctx->v_initial_segment = xmlGetProp(v_list, "sourceURL");
-                ctx->v_chunk_count++;
+                ctx->v_segment_count++;
             }
             else if (!strcmp(v_list->name, "SegmentURL"))
             {
-                ctx->v_chunk_count++;
+                ctx->v_segment_count++;
             }
         }
     }
@@ -163,11 +163,11 @@ int ytdl_dash_get_format (ytdl_dash_ctx_t *ctx,
             if (!strcmp(a_list->name, "Initialization"))
             {
                 ctx->a_initial_segment = xmlGetProp(a_list, "sourceURL");
-                ctx->a_chunk_count++;
+                ctx->a_segment_count++;
             }
             else if (!strcmp(a_list->name, "SegmentURL"))
             {
-                ctx->a_chunk_count++;
+                ctx->a_segment_count++;
             }
         }
     }

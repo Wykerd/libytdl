@@ -293,7 +293,7 @@ void ytdl_info_extract_video_details (ytdl_info_ctx_t *info)
     info->is_details_populated = 1;
 }
 
-static void ytdl__info_format_populate2 (ytdl_info_format_t *format) 
+void ytdl_info_format_populate (ytdl_info_format_t *format) 
 {
     if (format->flags & YTDL_INFO_FORMAT_POPULATED)
         return;
@@ -349,19 +349,13 @@ static void ytdl__info_format_populate2 (ytdl_info_format_t *format)
     format->flags |= YTDL_INFO_FORMAT_POPULATED;
 }
 
-static inline 
-void ytdl__info_format_populate (ytdl_info_ctx_t *info, size_t i) 
-{
-    return ytdl__info_format_populate2(info->formats[i]);
-}
-
 static void ytdl__info_format_populate_all(ytdl_info_ctx_t *info)
 {
     if (info->is_fmt_populated)
         return;
 
     for (size_t i = 0; i < info->formats_size; i++)
-        ytdl__info_format_populate(info, i);
+        ytdl_info_format_populate (info->formats[i]);
 
     info->is_fmt_populated = 1;
 }
@@ -457,7 +451,7 @@ char *ytdl_info_get_format_url2 (ytdl_info_ctx_t *info, ytdl_info_format_t *form
     if (format->url)
         return format->url;
 
-    ytdl__info_format_populate2(format);
+    ytdl_info_format_populate(format);
 
     if (format->cipher) {
         char *cipher = strdup(format->cipher);

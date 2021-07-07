@@ -49,6 +49,7 @@ struct ytdl_dl_ctx_s {
     ytdl_dl_player_map_t player_map;
 
     int status;
+    void *data;
 };
 
 int ytdl_dl_ctx_init (uv_loop_t *loop, ytdl_dl_ctx_t *ctx);
@@ -103,6 +104,7 @@ struct ytdl_dl_dash_ctx_s {
     ytdl_buf_t manifest;
 
     ytdl_dl_dash_data_cb on_data;
+    ytdl_dl_dash_cb on_segment_complete;
     ytdl_dl_dash_cb on_complete;
     // Relays http status
     ytdl_dl_dash_status_cb on_status;
@@ -126,7 +128,6 @@ struct ytdl_dl_dash_ctx_s {
     int is_shutdown;
     int is_dash_init;
     int is_video;
-    size_t chunks_downloaded;
     // opaque data
     void *data;
 };

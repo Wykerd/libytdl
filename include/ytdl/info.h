@@ -149,6 +149,11 @@ void ytdl_info_extract_video_details (ytdl_info_ctx_t *info);
 int ytdl_info_extract_formats (ytdl_info_ctx_t *info);
 
 /**
+ * Populates the data fields of format
+ */
+void ytdl_info_format_populate (ytdl_info_format_t *format);
+
+/**
  * Use the specified sig actions to decipher the formats of the context
  * 
  * @param info the context to which this applies

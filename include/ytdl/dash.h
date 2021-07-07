@@ -15,7 +15,7 @@ struct ytdl_dash_ctx_s {
     xmlChar *a_segment_path;
     xmlChar *a_initial_segment;
     xmlNode *a_segment_list;
-    size_t a_chunk_count;
+    size_t a_segment_count;
 
     xmlNode *v_rep;
     long long v_bandwidth;
@@ -23,7 +23,7 @@ struct ytdl_dash_ctx_s {
     xmlChar *v_segment_path;
     xmlChar *v_initial_segment;
     xmlNode *v_segment_list;
-    size_t v_chunk_count;
+    size_t v_segment_count;
 
     ytdl_dash_representation_select_cb on_pick_filter;
 };
