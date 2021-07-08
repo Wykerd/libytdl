@@ -335,6 +335,8 @@ int ytdl_sig_actions_init (ytdl_sig_actions_t *actions)
     actions->script = JS_UNDEFINED;
     actions->func = JS_UNDEFINED;
     actions->bytecode = NULL;
+    
+    return 0;
 }
 
 void ytdl_sig_actions_free (ytdl_sig_actions_t *actions)
