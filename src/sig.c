@@ -206,7 +206,7 @@ int ytdl_sig_actions_extract (ytdl_sig_actions_t *actions,
         } else if (func_body.base[idx] == ')') {
             nEnd = idx;
             size_t vlen = vEnd - vStart;
-            if (action_idx == 4) {
+            if (action_idx == YTDL_MAX_SIG) {
                 perror("Too many signature actions.");
                 goto overflow;
             } else if (swap_e && ((swap_e - swap_s) == (vlen)) && 

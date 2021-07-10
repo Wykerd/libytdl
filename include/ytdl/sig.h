@@ -22,9 +22,11 @@ typedef enum ytdl_sig_action_e {
     "return s.join('&');"                           \
     "};y;"
 
-#define YTDL_SIG_ACTIONS          \
-    ytdl_sig_action_t actions[4]; \
-    int actions_arg[4];           \
+#define YTDL_MAX_SIG 20
+
+#define YTDL_SIG_ACTIONS           \
+    ytdl_sig_action_t actions[YTDL_MAX_SIG]; \
+    int actions_arg[YTDL_MAX_SIG];           \
     int actions_size;             
 
 typedef struct ytdl_sig_actions_head_s {
