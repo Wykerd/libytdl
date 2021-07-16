@@ -13,6 +13,7 @@ Additionally `libytdlhttp` depends on `llhttp` which requires nodejs to build. [
 
 Lastly install dependencies: 
 - Archlinux: `sudo pacman -S openssl libuv ffmpeg libxml2`
+- Debian: `sudo apt install libxml2-dev ffmpeg libavformat-dev libavcodec-dev libuv-dev openssl-dev`
 
 # Building
 First recursively clone the repository from Github:
