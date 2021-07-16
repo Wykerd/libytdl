@@ -299,18 +299,15 @@ void ytdl_dl_player_cache_save_file(ytdl_dl_ctx_t *ctx, FILE *fd)
 int ytdl_dl_player_cache_load_file(ytdl_dl_ctx_t *ctx, FILE *fd)
 {   
     char player_path[100] = {0};
-    int pos = 0,
-        off = 0;
+    int pos = 0;
     for (;;)
     {
         do {
             if (pos > 99)
                 return -1;
         
-            player_path[off + pos++] = fgetc(fd);
-        } while (player_path[off + pos - 1] != 0);
-
-        off += pos + sizeof(ytdl_dl_player_t);
+            player_path[pos++] = fgetc(fd);
+        } while (player_path[pos - 1] != 0);
 
         ytdl_dl_player_t *player = malloc(sizeof(ytdl_dl_player_t));
 
