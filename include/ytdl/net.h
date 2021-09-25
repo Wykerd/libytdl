@@ -15,6 +15,9 @@
 
 #include <ytdl/buffer.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 /**
  * Sanitize filename inplace
  */
@@ -95,5 +98,9 @@ void ytdl_net_request_segment (ytdl_buf_t *buf,
                                const char* path_buf, size_t path_len, 
                                const char* segment_buf, size_t segment_len, 
                                const char* host_buf, size_t host_len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

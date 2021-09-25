@@ -11,6 +11,9 @@
 #include <ytdl/url_parser.h>
 #include <ytdl/dash.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #define YTDL_DL_IS_CONNECTED    (1)
 #define YTDL_DL_IS_SHUTDOWN     (1 << 1)
 #define YTDL_DL_IS_IDLE         (1 << 2)
@@ -143,4 +146,7 @@ void ytdl_dl_dash_load_fork (ytdl_dl_dash_ctx_t *ctx);
  */
 int ytdl_dl_dash_ctx_fork (ytdl_dl_dash_ctx_t *ctx, ytdl_dl_dash_ctx_t *fork);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -2,6 +2,9 @@
 #define YTDL_DASH_H
 #include <libxml/parser.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef struct ytdl_dash_ctx_s ytdl_dash_ctx_t;
 typedef int (*ytdl_dash_representation_select_cb) (ytdl_dash_ctx_t *ctx, xmlNode *adaptation, 
                                                    xmlNode *representation, int is_video);
@@ -42,4 +45,7 @@ int ytdl_dash_ctx_init (ytdl_dash_ctx_t *ctx, uint8_t *buf, size_t buflen);
 
 void ytdl_dash_ctx_free (ytdl_dash_ctx_t *ctx);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -8,6 +8,9 @@
 #include <ytdl/yyjson.h>
 #include <ytdl/sig.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #define YTDL_INFO_FORMAT_POPULATED      (1)
 #define YTDL_INFO_FORMAT_HAS_VID        (1 << 1)
 #define YTDL_INFO_FORMAT_HAS_AUD        (1 << 2)
@@ -205,4 +208,7 @@ size_t ytdl_info_get_best_video_format (ytdl_info_ctx_t *info);
  */
 #define ytdl_info_get_player_url(info) (info)->player_url
 
+#ifdef __cplusplus
+}
+#endif
 #endif

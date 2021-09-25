@@ -6,6 +6,10 @@
 #include <stddef.h>
 #include <ytdl/quickjs.h>
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef enum ytdl_sig_action_e {
     YTDL_SIG_ACTION_SWAP = 1, // w
     YTDL_SIG_ACTION_REVERSE,  // r
@@ -55,5 +59,9 @@ int ytdl_sig_actions_load_file (ytdl_sig_actions_t *actions, FILE *fd);
  */
 int ytdl_sig_actions_extract (ytdl_sig_actions_t *actions, 
                               uint8_t *buf, size_t buf_len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

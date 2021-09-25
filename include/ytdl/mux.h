@@ -1,6 +1,10 @@
 #ifndef YTDL_MUX_H
 #define YTDL_MUX_H
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef enum ytdl_mux_loglevel_e {
     YTDL_MUX_LOG_QUIET,
     YTDL_MUX_LOG_ERRORS,
@@ -8,5 +12,9 @@ typedef enum ytdl_mux_loglevel_e {
 } ytdl_mux_loglevel;
 
 int ytdl_mux_files (const char *audio_path, const char *video_path, const char *output_path, ytdl_mux_loglevel loglevel);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
