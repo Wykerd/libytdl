@@ -96,6 +96,8 @@ if (YTDL_BUILD_HTTP)
         find_package(OpenSSL REQUIRED)
     endif()
 
+    add_subdirectory(deps/llhttp)
+
     add_library(ytdlhttp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/http.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/http/net.c
@@ -106,15 +108,15 @@ if (YTDL_BUILD_HTTP)
 
     target_include_directories(ytdlhttp PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/include 
+        ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/include 
         ${UV_INCLUDE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/build
         ${OPENSSL_INCLUDE_DIR}
     )
 
     target_link_libraries(ytdlhttp PRIVATE
         ytdlcore
 
-        ${CMAKE_CURRENT_SOURCE_DIR}/deps/llhttp/build/libllhttp.a
+        llhttp
         OpenSSL::SSL 
         OpenSSL::Crypto 
         
