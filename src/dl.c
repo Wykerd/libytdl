@@ -45,8 +45,9 @@ static void ytdl__status_cb (ytdl_http_client_t *client, ytdl_net_status_t *stat
 
 static void ytdl__close_cb (uv_handle_t* handle) 
 {
-    ytdl_dl_ctx_t *ctx = handle->data;
-    if (ctx->on_close)
+    ytdl_http_client_t *http = handle->data;
+    ytdl_dl_ctx_t *ctx = http->data;
+    if (ctx->on_close != NULL)
         ctx->on_close(ctx);
 }
 
