@@ -45,7 +45,9 @@ static void ytdl__status_cb (ytdl_http_client_t *client, ytdl_net_status_t *stat
 
 static void ytdl__close_cb (uv_handle_t* handle) 
 {
-    // noop
+    ytdl_dl_ctx_t *ctx = handle->data;
+    if (ctx->on_close)
+        ctx->on_close(ctx);
 }
 
 static int ytdl__watch_html_complete (llhttp_t* parser);
@@ -199,6 +201,8 @@ int ytdl_dl_ctx_init (uv_loop_t *loop, ytdl_dl_ctx_t *ctx)
     ctx->http.parser_settings.on_body = ytdl__watch_body_cb;
     ctx->http.parser_settings.on_message_complete = ytdl__watch_html_complete;
     ctx->status = 0;
+
+    ctx->on_close = NULL;
 
     return 0;
 }

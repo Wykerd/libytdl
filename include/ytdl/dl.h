@@ -23,6 +23,8 @@ typedef struct ytdl_dl_video_s ytdl_dl_video_t;
 
 typedef void (*ytdl_dl_complete_cb)(ytdl_dl_ctx_t* ctx, ytdl_dl_video_t* video);
 
+typedef void (*ytdl_dl_cb)(ytdl_dl_ctx_t *ctx);
+
 struct ytdl_dl_video_s {
     char id[YTDL_ID_SIZE];
     ytdl_info_ctx_t info;
@@ -52,6 +54,9 @@ struct ytdl_dl_ctx_s {
     ytdl_dl_player_map_t player_map;
 
     int status;
+
+    ytdl_dl_cb on_close;
+    
     void *data;
 };
 
