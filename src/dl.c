@@ -43,6 +43,11 @@ static void ytdl__status_cb (ytdl_http_client_t *client, ytdl_net_status_t *stat
         fprintf(stderr, "HTTP error: %u %zd\n", status->type, status->code);
 }
 
+static void ytdl__mediah_status_cb (ytdl_http_client_t *client, ytdl_net_status_t *status)
+{
+	fprintf(stderr, "HTTP error: %u %zd\n", status->type, status->code);
+}
+
 static void ytdl__close_cb (uv_handle_t* handle) 
 {
     ytdl_http_client_t *http = handle->data;
@@ -356,34 +361,42 @@ static int ytdl__media_chunk_complete_cb (llhttp_t* parser)
 
     if (ctx->is_chunked)
     {
-        ytdl_buf_t buf;
-        if (ctx->last_chunk_end + YTDL_DL_CHUNK_SIZE >= ctx->format_content_length)
-        {
-            ctx->http.parser_settings.on_message_complete = ytdl__media_chunk_final_complete_cb;
-            ytdl_net_request_media_chunk(&buf, 
-                ctx->format_url + ctx->url.field_data[UF_PATH].off, ctx->url.field_data[UF_PATH].len,
-                ctx->format_url + ctx->url.field_data[UF_QUERY].off, ctx->url.field_data[UF_QUERY].len,
-                ctx->format_url + ctx->url.field_data[UF_HOST].off, ctx->url.field_data[UF_HOST].len,
-                ctx->last_chunk_end + 1, 0
-            );
-        }
-        else 
-        {
-            ytdl_net_request_media_chunk(&buf, 
-                ctx->format_url + ctx->url.field_data[UF_PATH].off, ctx->url.field_data[UF_PATH].len,
-                ctx->format_url + ctx->url.field_data[UF_QUERY].off, ctx->url.field_data[UF_QUERY].len,
-                ctx->format_url + ctx->url.field_data[UF_HOST].off, ctx->url.field_data[UF_HOST].len,
-                ctx->last_chunk_end + 1, ctx->last_chunk_end + YTDL_DL_CHUNK_SIZE
-            );
-            ctx->last_chunk_end += YTDL_DL_CHUNK_SIZE;
-        };
-        ytdl_http_client_write(&ctx->http, (uv_buf_t *)&buf, ytdl__write_cb); //TODO: error handle
-        ytdl_buf_free(&buf);
-    }
+		if (ctx->on_chunk_complete != NULL)
+			ctx->on_chunk_complete(ctx);
+		if (!ctx->pause_between_chunks)
+			ytdl_dl_media_ctx_next_chunk(ctx);
+	}
     else if (ctx->on_complete)
         ctx->on_complete(ctx);
     
     return 0;
+}
+
+void ytdl_dl_media_ctx_next_chunk(ytdl_dl_media_ctx_t *ctx)
+{
+	ytdl_buf_t buf;
+	if (ctx->last_chunk_end + YTDL_DL_CHUNK_SIZE >= ctx->format_content_length)
+	{
+		ctx->http.parser_settings.on_message_complete = ytdl__media_chunk_final_complete_cb;
+		ytdl_net_request_media_chunk(&buf,
+			ctx->format_url + ctx->url.field_data[UF_PATH].off, ctx->url.field_data[UF_PATH].len,
+			ctx->format_url + ctx->url.field_data[UF_QUERY].off, ctx->url.field_data[UF_QUERY].len,
+			ctx->format_url + ctx->url.field_data[UF_HOST].off, ctx->url.field_data[UF_HOST].len,
+			ctx->last_chunk_end + 1, 0
+		);
+	}
+	else
+	{
+		ytdl_net_request_media_chunk(&buf,
+			ctx->format_url + ctx->url.field_data[UF_PATH].off, ctx->url.field_data[UF_PATH].len,
+			ctx->format_url + ctx->url.field_data[UF_QUERY].off, ctx->url.field_data[UF_QUERY].len,
+			ctx->format_url + ctx->url.field_data[UF_HOST].off, ctx->url.field_data[UF_HOST].len,
+			ctx->last_chunk_end + 1, ctx->last_chunk_end + YTDL_DL_CHUNK_SIZE
+		);
+		ctx->last_chunk_end += YTDL_DL_CHUNK_SIZE;
+	};
+	ytdl_http_client_write(&ctx->http, (uv_buf_t *)&buf, ytdl__write_cb); //TODO: error handle
+	ytdl_buf_free(&buf);
 }
 
 static int ytdl__media_chunk_complete_cb (llhttp_t* parser);
@@ -483,8 +496,11 @@ int ytdl_dl_media_ctx_init (uv_loop_t *loop, ytdl_dl_media_ctx_t *ctx,
     ctx->http.parser_settings.on_status_complete = ytdl__media_status_cb;
     ctx->http.parser_settings.on_body = ytdl__media_echo_cb;
     ctx->http.parser_settings.on_message_complete = ytdl__media_chunk_complete_cb;
+	ctx->http.status_cb = ytdl__mediah_status_cb;
 
     ctx->is_chunked = !(format->flags & YTDL_INFO_FORMAT_HAS_AUD) || !(format->flags & YTDL_INFO_FORMAT_HAS_VID);
+
+	ctx->pause_between_chunks = 0;
 
     http_parser_url_init(&ctx->url);
     ctx->format_url = strdup(ytdl_info_get_format_url2(info, format));
@@ -603,6 +619,26 @@ static int ytdl__dash_echo_cb (llhttp_t* parser, const char *at, size_t length)
     return 0;
 }
 
+void ytdl_dl_dash_ctx_next_chunk(ytdl_dl_dash_ctx_t *ctx)
+{
+	xmlChar *segment = ctx->is_video ?
+					   ytdl_dash_next_video_segment(&ctx->dash) :
+					   ytdl_dash_next_audio_segment(&ctx->dash);
+
+	if (segment)
+	{
+		ytdl_buf_t buf;
+		ytdl_net_request_segment(&buf,
+								 ctx->path, ctx->path_len,
+								 segment, strlen(segment),
+								 ctx->host, ctx->host_len);
+		ytdl_http_client_write(&ctx->http, (uv_buf_t *)&buf, ytdl__write_cb);
+		ytdl_buf_free(&buf);
+	}
+	else
+		ctx->on_complete(ctx);
+}
+
 static int ytdl__dash_segment_complete_cb (llhttp_t* parser)
 {
     ytdl_dl_dash_ctx_t *ctx = (ytdl_dl_dash_ctx_t *)((ytdl_http_client_t *)parser->data)->data;
@@ -610,22 +646,8 @@ static int ytdl__dash_segment_complete_cb (llhttp_t* parser)
     if (ctx->on_segment_complete)
         ctx->on_segment_complete(ctx);
 
-    xmlChar *segment = ctx->is_video ?
-        ytdl_dash_next_video_segment(&ctx->dash) :
-        ytdl_dash_next_audio_segment(&ctx->dash);
-
-    if (segment)
-    {
-        ytdl_buf_t buf;
-        ytdl_net_request_segment(&buf, 
-            ctx->path, ctx->path_len,
-            segment, strlen(segment), 
-            ctx->host, ctx->host_len);
-        ytdl_http_client_write(&ctx->http, (uv_buf_t *)&buf, ytdl__write_cb);
-        ytdl_buf_free(&buf);
-    }
-    else
-        ctx->on_complete(ctx);
+    if (!ctx->pause_between_chunks)
+		ytdl_dl_dash_ctx_next_chunk(ctx);
     
     return 0;
 }
@@ -721,6 +743,8 @@ int ytdl_dl_dash_ctx_init (uv_loop_t *loop, ytdl_dl_dash_ctx_t *ctx)
     ctx->http.settings.keep_alive = 1;
     ctx->http.parser_settings.on_body = ytdl__dash_manifest_cb;
     ctx->http.parser_settings.on_message_complete = ytdl__dash_manifest_complete_cb;
+
+	ctx->pause_between_chunks = 0;
 
     if (!ytdl_buf_alloc(&ctx->manifest, 1))
         return 1;

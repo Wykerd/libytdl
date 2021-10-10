@@ -86,7 +86,9 @@ struct ytdl_dl_media_ctx_s {
     // Relays http status
     ytdl_dl_media_status_cb on_status;
     ytdl_dl_media_cb on_close;
+	ytdl_dl_media_cb on_chunk_complete;
 
+	int pause_between_chunks;
     int is_chunked;
     int want_redirect;
     int redirect_was_location;
@@ -99,6 +101,7 @@ struct ytdl_dl_media_ctx_s {
 int ytdl_dl_media_ctx_init (uv_loop_t *loop, ytdl_dl_media_ctx_t *ctx, 
                             ytdl_info_format_t *format, ytdl_info_ctx_t *info);
 int ytdl_dl_media_ctx_connect (ytdl_dl_media_ctx_t *ctx);
+void ytdl_dl_media_ctx_next_chunk(ytdl_dl_media_ctx_t *ctx);
 void ytdl_dl_media_shutdown (ytdl_dl_media_ctx_t *ctx, ytdl_dl_media_cb on_close);
 
 typedef struct ytdl_dl_dash_ctx_s ytdl_dl_dash_ctx_t;
@@ -136,12 +139,14 @@ struct ytdl_dl_dash_ctx_s {
     int is_shutdown;
     int is_dash_init;
     int is_video;
+	int pause_between_chunks;
     // opaque data
     void *data;
 };
 
 int ytdl_dl_dash_ctx_init (uv_loop_t *loop, ytdl_dl_dash_ctx_t *ctx);
 int ytdl_dl_dash_ctx_connect (ytdl_dl_dash_ctx_t *ctx, const char *manifest_url);
+void ytdl_dl_dash_ctx_next_chunk(ytdl_dl_dash_ctx_t *ctx);
 void ytdl_dl_dash_shutdown (ytdl_dl_dash_ctx_t *ctx, ytdl_dl_dash_cb on_close);
 void ytdl_dl_dash_load_fork (ytdl_dl_dash_ctx_t *ctx);
 /**

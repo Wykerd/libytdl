@@ -5,7 +5,7 @@
 #define YTDL_ID_SIZE 12
 #define YTDL_ID_LEN 11
 
-#define YTDL_DL_CHUNK_SIZE (1024 * 1024 * 10)
+#define YTDL_DL_CHUNK_SIZE (1024 * 128)
 #define YTDL_DL_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"
 
 #define YTDL_DL_MAX_PLAYER_PATH 150
